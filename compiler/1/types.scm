@@ -126,7 +126,11 @@
            (if (eqv? a b)
                a
                (type-error a b))
-           (set-car! (cdr a) b)))
+           (if (eqv? (car b) 'type-req)
+               (begin
+                 (set-car! a 'type-req)
+                 (set-cdr! a (cdr b)))
+               (set-car! (cdr a) b))))
       ((type-obj a-bindings)
        (match b
          ((type-obj b-bindings)
@@ -198,18 +202,17 @@
          bindings))
   (define (fresh-type t)
     (let ((t (prune t)))
-      (match t
-        ((type-var v)
-         (if (memv t ng)
-             t
-             (fresh-var t)))
-        ((type-op name . args)
-         (apply new-type-op name (map fresh-type args)))
-        ((type-req bindings)
-         t)
-;         (list 'type-req (fresh-bindings bindings)))
-        ((type-obj bindings)
-         (list 'type-obj (fresh-bindings bindings))))))
+      (if (memv t ng)
+          t
+          (match t
+            ((type-var v)
+             (fresh-var t))
+            ((type-op name . args)
+             (apply new-type-op name (map fresh-type args)))
+            ((type-req bindings)
+             (list 'type-req (fresh-bindings bindings)))
+            ((type-obj bindings)
+             (list 'type-obj (fresh-bindings bindings)))))))
   (fresh-type t))
 
 (define (occurs-in-type? a b)
@@ -243,10 +246,9 @@
   (case (car t)
     ((type-var)
      (if (cadr t)
-         (prune (cadr t))
-;         (begin
-;           (set-car! (cdr t) (prune (cadr t)))
-;           (cadr t))
+         (let ((pruned (prune (cadr t))))
+           (set-car! (cdr t) pruned)
+           pruned)
          t))
     (else
      t)))
@@ -274,10 +276,10 @@
       (let (def test (object (a . (fun x (id x))))) (if (call (lookup (id test) a) (id true))
                                                         (call (lookup (id test) a) (id 0))
                                                         (call (lookup (id test) a) (id 0))))
-;      (fun x (let (seq (def y (id x)) (seq (def a (call (id y) (id 0))) (def a (call (id y) (id false))))) (id y)))
-;      (call (fun test (if (call (lookup (id test) a) (id true))
-;                          (call (lookup (id test) a) (id 0))
-;                          (call (lookup (id test) a) (id 0)))) (object (a . (fun x (id x)))))
+      ;      (fun x (let (seq (def y (id x)) (seq (def a (call (id y) (id 0))) (def a (call (id y) (id false))))) (id y)))
+      ;      (call (fun test (if (call (lookup (id test) a) (id true))
+      ;                          (call (lookup (id test) a) (id 0))
+      ;                          (call (lookup (id test) a) (id 0)))) (object (a . (fun x (id x)))))
       (fun x (let (seq (def y (id x)) (seq (def a (lookup (id y) a)) (def b (lookup (id y) b)))) (id y)))
       (let (def get-c (fun x (lookup (id x) c)))
         (fun x
