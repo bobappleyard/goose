@@ -1,49 +1,39 @@
-(define (print . msg)
-  (for-each (lambda (m)
-              (display m)
-              (display " "))
-            msg)
-  (newline))
+(define (new-type-var)
+  (list 'type-var #f))
 
-(define-syntax match
-  (syntax-rules (else)
-    ((_ ls ((head . tail) body ...) ... (else e-body ...))
-     (let ((tmp ls))
-       (case (car tmp)
-         ((head) (apply (lambda tail body ...) (cdr tmp))) ...
-         (else e-body ...))))
-    ((_ ls ((head . tail) body ...) ...)
-     (let ((tmp ls))
-       (match tmp
-         ((head . tail) body ...) ... 
-         (else (error "couldn't match" tmp)))))))
+(define (new-type-op name . args)
+  (append (list 'type-op name) args))
 
-(define (fold f i l)
-  (if (null? l)
-      i
-      (fold f (f (car l) i) (cdr l))))
+(define (new-type-obj bindings)
+  (list 'type-obj bindings))
 
-(define (filter f l)
-  (reverse (fold (lambda (x acc)
-                   (if (f x) 
-                       (cons x acc)
-                       acc))
-                 '()
-                 l)))
+(define (new-type-req name type)
+  (list 'type-req (list (cons name type))))
 
-(define error
-  (call-with-current-continuation
-   (lambda (k)
-     (lambda msg
-       (apply print msg)
-       (k #f)))))
+(define (new-function-type input output)
+  (new-type-op 'fun input output))
+
+(define (prune t)
+  (case (car t)
+    ((type-var)
+     (if (cadr t)
+         (let ((pruned (prune (cadr t))))
+           (set-car! (cdr t) pruned)
+           pruned)
+         t))
+    (else
+     t)))
+
+(define bool-type (new-type-op 'bool))
+(define int-type (new-type-op 'int))
+(define null-type (new-type-op 'nothing))
 
 (define (analyze expr e ng)
   (match expr
-    ((begin expr . rest)
-     (if (null? rest)
-         (analyze expr e ng)
-         (analyze `(call (fun @@dummy (begin ,@rest)) ,expr) e ng)))
+    ((begin . exprs)
+     (fold (lambda (expr type) (analyze expr e ng))
+           null-type
+           exprs))
     ((object . bindings)
      (new-type-obj (map (lambda (binding)
                           (cons (car binding) 
@@ -226,77 +216,4 @@
        (not (null? (filter (lambda (binding) (occurs-in-type? a (cdr binding))) bindings))))
       ((type-obj bindings)
        (not (null? (filter (lambda (binding) (occurs-in-type? a (cdr binding))) bindings)))))))
-
-(define (new-type-var)
-  (list 'type-var #f))
-
-(define (new-type-op name . args)
-  (append (list 'type-op name) args))
-
-(define (new-type-obj bindings)
-  (list 'type-obj bindings))
-
-(define (new-type-req name type)
-  (list 'type-req (list (cons name type))))
-
-(define (new-function-type input output)
-  (new-type-op 'fun input output))
-
-(define (prune t)
-  (case (car t)
-    ((type-var)
-     (if (cadr t)
-         (let ((pruned (prune (cadr t))))
-           (set-car! (cdr t) pruned)
-           pruned)
-         t))
-    (else
-     t)))
-
-(define bool-type (new-type-op 'bool))
-(define int-type (new-type-op 'int))
-
-(define (test)
-  (define progs 
-    '(
-      (id 0)
-      (if (id true) (id 0) (id 0))
-      (fun x (id x))
-      (call (fun x (id x)) (id 0))
-      (let (def identity (fun x (id x)))
-        (call (id identity) (id 0)))
-      (let (rec (def add (fun a (fun b (if (call (id zero?) (id a)) 
-                                           (id b)
-                                           (call (call (id add) (call (id pred) (id a))) (call (id succ) (id b))))))))
-        (id add))
-      (object (a . (id 0)))
-      (fun x (lookup (id x) a))
-      (lookup (object (a . (id 0))) a)
-      (call (fun x (call (lookup (id x) b) (lookup (id x) a))) (object (a . (id 0)) (b . (fun x (id x)))))
-      (let (def test (object (a . (fun x (id x))))) (if (call (lookup (id test) a) (id true))
-                                                        (call (lookup (id test) a) (id 0))
-                                                        (call (lookup (id test) a) (id 0))))
-      ;      (fun x (let (seq (def y (id x)) (seq (def a (call (id y) (id 0))) (def a (call (id y) (id false))))) (id y)))
-      ;      (call (fun test (if (call (lookup (id test) a) (id true))
-      ;                          (call (lookup (id test) a) (id 0))
-      ;                          (call (lookup (id test) a) (id 0)))) (object (a . (fun x (id x)))))
-      (fun x (let (seq (def y (id x)) (seq (def a (lookup (id y) a)) (def b (lookup (id y) b)))) (id y)))
-      (let (def get-c (fun x (lookup (id x) c)))
-        (fun x
-             (begin
-               (call (id get-c) (id x))
-               (lookup (id x) a)
-               (lookup (id x) b)
-               (id get-c))))
-      ))
-  (let ((env `((true . ,bool-type) 
-               (false . ,bool-type) 
-               (0 . ,int-type)
-               (nil . ,(new-type-op 'nothing))
-               (succ . ,(new-type-op 'fun int-type int-type))
-               (pred . ,(new-type-op 'fun int-type int-type))
-               (zero? . ,(new-type-op 'fun int-type bool-type)))))
-    (for-each (lambda (prog)
-                (print prog "::" (analyze prog env '())))
-              progs)))
 
