@@ -23,6 +23,14 @@
       i
       (fold f (f (car l) i) (cdr l))))
 
+(define (filter f l)
+  (reverse (fold (lambda (x acc)
+                   (if (f x) 
+                       (cons x acc)
+                       acc))
+                 '()
+                 l)))
+
 (define error
   (call-with-current-continuation
    (lambda (k)
@@ -32,13 +40,16 @@
 
 (define (analyze expr e ng)
   (match expr
+    ((begin expr . rest)
+     (if (null? rest)
+         (analyze expr e ng)
+         (analyze `(call (fun @@dummy (begin ,@rest)) ,expr) e ng)))
     ((object . bindings)
-     (apply new-type-obj (map (lambda (binding)
-                                (cons (car binding) 
-                                      (analyze (cdr binding) e ng)))
-                              bindings)))
+     (new-type-obj (map (lambda (binding)
+                          (cons (car binding) 
+                                (analyze (cdr binding) e ng)))
+                        bindings)))
     ((lookup obj member)
-     (print obj member)
      (let ((obj-type (analyze obj e ng))
            (member-type (new-type-var)))
        (unify obj-type (new-type-req member member-type))
@@ -116,23 +127,23 @@
                a
                (type-error a b))
            (set-car! (cdr a) b)))
-      ((type-obj . a-bindings)
+      ((type-obj a-bindings)
        (match b
-         ((type-obj . b-bindings)
+         ((type-obj b-bindings)
           (unify-bindings a b #f)
           (unify-bindings b a #f))
-         ((type-req . b-bindings)
+         ((type-req b-bindings)
           (unify-bindings a b #t)
           (unify-bindings b a #f))          
          (else
           (unify b a))))
-      ((type-req . a-bindings)
+      ((type-req a-bindings)
        (match b
          ((type-var v)
           (unify b a))
-         ((type-obj . b-bindings)
+         ((type-obj b-bindings)
           (unify b a))
-         ((type-req . b-bindings)
+         ((type-req b-bindings)
           (unify-bindings a b #t)
           (unify-bindings b a #t))
          (else 
@@ -180,6 +191,11 @@
           (let ((res (new-type-var)))
             (set! e (cons (cons tv res) e))
             res))))
+  (define (fresh-bindings bindings)
+    (map (lambda (b)
+           (cons (car b)
+                 (fresh-type (cdr b))))
+         bindings))
   (define (fresh-type t)
     (let ((t (prune t)))
       (match t
@@ -188,7 +204,12 @@
              t
              (fresh-var t)))
         ((type-op name . args)
-         (apply new-type-op name (map fresh-type args))))))
+         (apply new-type-op name (map fresh-type args)))
+        ((type-req bindings)
+         t)
+;         (list 'type-req (fresh-bindings bindings)))
+        ((type-obj bindings)
+         (list 'type-obj (fresh-bindings bindings))))))
   (fresh-type t))
 
 (define (occurs-in-type? a b)
@@ -197,12 +218,11 @@
       ((type-var v)
        (eqv? a b))
       ((type-op name . args)
-       (let next ((args args))
-         (cond
-           ((null? args) #f)
-           ((occurs-in-type? a (car args)) #t)
-           (else (next (cdr args))))))
-      (else #f))))
+       (not (null? (filter (lambda (b) (occurs-in-type? a b)) args))))
+      ((type-req bindings)
+       (not (null? (filter (lambda (binding) (occurs-in-type? a (cdr binding))) bindings))))
+      ((type-obj bindings)
+       (not (null? (filter (lambda (binding) (occurs-in-type? a (cdr binding))) bindings)))))))
 
 (define (new-type-var)
   (list 'type-var #f))
@@ -210,7 +230,7 @@
 (define (new-type-op name . args)
   (append (list 'type-op name) args))
 
-(define (new-type-obj . bindings)
+(define (new-type-obj bindings)
   (list 'type-obj bindings))
 
 (define (new-type-req name type)
@@ -223,9 +243,10 @@
   (case (car t)
     ((type-var)
      (if (cadr t)
-         (begin
-           (set-car! (cdr t) (prune (cadr t)))
-           (cadr t))
+         (prune (cadr t))
+;         (begin
+;           (set-car! (cdr t) (prune (cadr t)))
+;           (cadr t))
          t))
     (else
      t)))
@@ -249,11 +270,27 @@
       (object (a . (id 0)))
       (fun x (lookup (id x) a))
       (lookup (object (a . (id 0))) a)
-      (call (fun x (lookup (id x) b)) (object (a . (id 0))))
+      (call (fun x (call (lookup (id x) b) (lookup (id x) a))) (object (a . (id 0)) (b . (fun x (id x)))))
+      (let (def test (object (a . (fun x (id x))))) (if (call (lookup (id test) a) (id true))
+                                                        (call (lookup (id test) a) (id 0))
+                                                        (call (lookup (id test) a) (id 0))))
+;      (fun x (let (seq (def y (id x)) (seq (def a (call (id y) (id 0))) (def a (call (id y) (id false))))) (id y)))
+;      (call (fun test (if (call (lookup (id test) a) (id true))
+;                          (call (lookup (id test) a) (id 0))
+;                          (call (lookup (id test) a) (id 0)))) (object (a . (fun x (id x)))))
+      (fun x (let (seq (def y (id x)) (seq (def a (lookup (id y) a)) (def b (lookup (id y) b)))) (id y)))
+      (let (def get-c (fun x (lookup (id x) c)))
+        (fun x
+             (begin
+               (call (id get-c) (id x))
+               (lookup (id x) a)
+               (lookup (id x) b)
+               (id get-c))))
       ))
   (let ((env `((true . ,bool-type) 
                (false . ,bool-type) 
                (0 . ,int-type)
+               (nil . ,(new-type-op 'nothing))
                (succ . ,(new-type-op 'fun int-type int-type))
                (pred . ,(new-type-op 'fun int-type int-type))
                (zero? . ,(new-type-op 'fun int-type bool-type)))))
