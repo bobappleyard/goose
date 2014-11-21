@@ -48,3 +48,4 @@
                  (lambda (msg) (apply print prog "failed with message:" msg))))
               progs)))
 
+(test)
