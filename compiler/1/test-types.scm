@@ -1,5 +1,6 @@
 (load "utils.scm")
 (load "types.scm")
+(load "scm-backend.scm")
 
 (define (test)
   (define progs 
@@ -44,7 +45,8 @@
                (zero? . ,(new-type-op 'fun int-type bool-type)))))
     (for-each (lambda (prog)
                 (with-error-handler 
-                 (lambda () (print prog "::" (analyze prog env '())))
+                 (lambda ()
+                   (print prog "::" (analyze prog env '()) "-->" (emit prog)))
                  (lambda (msg) (apply print prog "failed with message:" msg))))
               progs)))
 

@@ -1,0 +1,42 @@
+(define (synthesize-id id)
+  (string->symbol (string-append "%tso%"
+                                 (symbol->string id))))
+
+(define (emit expr)
+  (match expr
+    ((begin . exprs)
+     (cons 'begin (map emit exprs)))
+    ((object . members)
+     (cons 'make-object (map (lambda (binding)
+                               (cons (car binding) (emit (cdr binding))))
+                             members)))
+    ((lookup obj member)
+     (list 'lookup-attribute (emit obj) (list 'quote member)))
+    ((id name)
+     (if (symbol? name)
+         (synthesize-id name)
+         name))
+    ((fun bind body)
+     (list 'lambda (list (synthesize-id bind)) (emit body)))
+    ((call fun arg)
+     (list (emit fun) (emit arg)))
+    ((let decl body)
+     (emit-decl decl (emit body)))))
+
+(define (emit-decl decl body)
+  (match decl
+    ((def bind def)
+     (list 'let (list (list (synthesize-id bind) (emit def))) body))
+    ((seq first second)
+     (emit-decl first (emit-decl second body)))
+    ((rec decl)
+     (list 'letrec (emit-rec-decl decl) body))))
+
+(define (emit-rec-decl decl)
+  (match decl
+    ((def bind def)
+     (list (list (synthesize-id bind) (emit def))))
+    ((seq first second)
+     (append (emit-rec-decl first) (emit-rec-decl second)))
+    ((rec decl)
+     (emit-rec-decl decl))))
