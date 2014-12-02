@@ -212,8 +212,9 @@
        (eqv? a b))
       ((type-op name . args)
        (not (null? (filter (lambda (b) (occurs-in-type? a b)) args))))
-      ((type-req bindings)
-       (not (null? (filter (lambda (binding) (occurs-in-type? a (cdr binding))) bindings))))
-      ((type-obj bindings)
-       (not (null? (filter (lambda (binding) (occurs-in-type? a (cdr binding))) bindings)))))))
+      (else #f))))
+;      ((type-req bindings)
+;       (not (null? (filter (lambda (binding) (occurs-in-type? a (cdr binding))) bindings))))
+;      ((type-obj bindings)
+;       (not (null? (filter (lambda (binding) (occurs-in-type? a (cdr binding))) bindings)))))))
 

@@ -35,6 +35,7 @@
                (lookup (id x) a)
                (lookup (id x) b)
                (id get-c))))
+      (fun x (call (lookup (id x) a) (id x)))
       ))
   (let ((env `((true . ,bool-type) 
                (false . ,bool-type) 
