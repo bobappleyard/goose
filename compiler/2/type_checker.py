@@ -23,6 +23,7 @@ class TypePrinter(object):
         self.seen = {}
         self.cur = 1
         self.defns = {}
+        self.recursive = False
     
     def type_string(self, t):
         self.type_var_string(t)
@@ -34,7 +35,10 @@ class TypePrinter(object):
         if pt:
             return pt
         try:
-            return self.seen[t]
+            res = self.seen[t]
+            if res == 'A':
+                self.recursive = True
+            return res
         except KeyError:
             res = self.new_type_var()
             self.seen[t] = res
@@ -69,6 +73,11 @@ class TypePrinter(object):
         if pt:
             return pt
         tv = self.seen[t]
+        if self.recursive:
+            return 'A\nwhere\n' + '\n'.join(
+                "  {0} = {1}".format(n, v)
+                for n, v in self.defns.iteritems()
+            )
         return "\n".join([self.defns[tv], "where"] + [
             "  {0} = {1}".format(n, v)
             for n, v in self.defns.iteritems()
@@ -190,7 +199,15 @@ class Id(AST):
         return env[self.name].clone(env, {}).prune()
 
 
-class Object(AST):
+class MultiAST(AST):
+    def __init__(self, *args):
+        sls = self.__slots__
+        for n, v in zip(sls[:-1], args):
+            setattr(self, n, v)
+        setattr(self, sls[-1], args[len(sls)-1:])
+
+
+class Object(MultiAST):
     __slots__ = ('attrs',)
     
     def __init__(self, *attrs):
@@ -208,11 +225,8 @@ class Object(AST):
         return res
 
 
-class Begin(AST):
+class Begin(MultiAST):
     __slots__ = ('exprs',)
-    
-    def __init__(self, *exprs):
-        self.exprs = exprs
     
     def analyze(self, env):
         for expr in self.exprs:
@@ -253,6 +267,16 @@ class LetRec(Let):
         for name, val in self.bindings:
             inner_env = inner_env.add_generic(name, val.analyze(env))
         return inner_env
+
+
+class AssertType(AST):
+    __slots__ = ('expr', 'type')
+    
+    def analyze(self, env):
+        candidate = self.expr.analyze(env)
+        res = self.type.clone(env).prune()
+        candidate.assert_subtype_of(res)
+        return res
 
 
 class TypeEnvironment(object):

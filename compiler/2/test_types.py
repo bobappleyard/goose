@@ -2,8 +2,10 @@ from type_checker import *
 
 exprs = [
     Id(0),
+    Call(Id(0), 'add', Id(0)),
     Object(('id', 'x', Id('x'))),
     Object(('self', 'x', Id('this'))),
+    Call(Id(0), 'add', Object(('add', 'x', Id('x')))),
     Call(Object(('id', 'x', Id('x'))), 'id', Id(0)),
     Object(('gety', 'x', Call(Id('x'), 'y', Id('void')))),
     Object(
@@ -23,10 +25,14 @@ exprs = [
     Let([('ider', Object(('id', 'x', Id('x'))))], Begin(
         Call(Id('ider'), 'id', Id(0)),
         Call(Id('ider'), 'id', Id('void'))
-    ))
+    )),
 ]
 
-int_type = Type(Method('@int', Type(), Type()))
+num_type = Type()
+num_type.methods.append(Method('add', num_type, num_type))
+
+int_type = Type(Method('@int', Type(), Type()),
+                Method('add', num_type, num_type))
 void_type = Type(Method('@void', Type(), Type()))
 
 env = TypeEnvironment({0: int_type, 'void': void_type},
