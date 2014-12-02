@@ -128,8 +128,6 @@ class Type(object):
         other = other.prune()
         if self == other:
             return
-        if isinstance(other, Var):
-            other.bound = self
         for om in other.methods:
             m = self.get_method(om.name)
             om.assert_requirement_satisfied_by(m)
@@ -194,6 +192,7 @@ class Id(AST):
 
 class Object(AST):
     __slots__ = ('attrs',)
+    
     def __init__(self, *attrs):
         self.attrs = attrs
 
@@ -211,6 +210,7 @@ class Object(AST):
 
 class Begin(AST):
     __slots__ = ('exprs',)
+    
     def __init__(self, *exprs):
         self.exprs = exprs
     

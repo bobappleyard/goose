@@ -1,8 +1,9 @@
-from type_checker import Id, Object, Call, Type, Method, TypeEnvironment, Begin
+from type_checker import *
 
 exprs = [
     Id(0),
     Object(('id', 'x', Id('x'))),
+    Object(('self', 'x', Id('this'))),
     Call(Object(('id', 'x', Id('x'))), 'id', Id(0)),
     Object(('gety', 'x', Call(Id('x'), 'y', Id('void')))),
     Object(
@@ -19,6 +20,10 @@ exprs = [
     Object(('f', 'x', Call(Id('x'), 'g', Call(Id('x'), 'h', Id('void'))))),
     Object(('f', 'x', Call(Id('x'), 'g', Id('x')))),
     Object(('f', 'x', Call(Id('this'), 'g', Id('x')))),
+    Let([('ider', Object(('id', 'x', Id('x'))))], Begin(
+        Call(Id('ider'), 'id', Id(0)),
+        Call(Id('ider'), 'id', Id('void'))
+    ))
 ]
 
 int_type = Type(Method('@int', Type(), Type()))
@@ -27,6 +32,10 @@ void_type = Type(Method('@void', Type(), Type()))
 env = TypeEnvironment({0: int_type, 'void': void_type},
                       set([int_type, void_type]))
 for expr in exprs:
-    t = expr.analyze(env).prune()
-    print expr, '::', t
+    try:
+        t = expr.analyze(env).prune()
+    except RequirementsError as e:
+        print expr, 'failed:', e
+    else:
+        print expr, '::', t
     print
