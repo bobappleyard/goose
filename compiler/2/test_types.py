@@ -16,6 +16,9 @@ exprs = [
             Call(Id('x'), 'f', Id(0)),
             Call(Id('x'), 'g', Id(0))
     ))),
+    Object(('f', 'x', Call(Id('x'), 'g', Call(Id('x'), 'h', Id('void'))))),
+    Object(('f', 'x', Call(Id('x'), 'g', Id('x')))),
+    Object(('f', 'x', Call(Id('this'), 'g', Id('x')))),
 ]
 
 int_type = Type(Method('@int', Type(), Type()))

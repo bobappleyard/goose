@@ -116,7 +116,10 @@ class Type(object):
         return self
     
     def get_method(self, name):
-        return next(m for m in self.methods if m.name == name)
+        try:
+            return next(m for m in self.methods if m.name == name)
+        except StopIteration:
+            raise RequirementsError('missing ' + name)
     
     def assert_subtype_of(self, other):
         """ Assert that self is a subtype of other. That is that other has all
@@ -202,7 +205,7 @@ class Object(AST):
             input = Var()
             method_env = env.add_fixed(arg, input)
             res.methods.append(Method(name, input.prune(), expr.analyze(method_env)))
-        this.prune().assert_subtype_of(res)
+        res.assert_subtype_of(this)
         return res
 
 
@@ -225,7 +228,7 @@ class Call(AST):
         arg_type = self.arg.analyze(env)
         res_type = Var()
         req = Var(Method(self.name, arg_type, res_type))
-        req.assert_subtype_of(obj_type)
+        obj_type.assert_subtype_of(req)
         return res_type.prune()
 
 
