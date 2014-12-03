@@ -35,8 +35,7 @@ int_type = Type(Method('@int', Type(), Type()),
                 Method('add', num_type, num_type))
 void_type = Type(Method('@void', Type(), Type()))
 
-env = TypeEnvironment({0: int_type, 'void': void_type},
-                      set([int_type, void_type]))
+env = TypeEnvironment({0: int_type, 'void': void_type})
 for expr in exprs:
     try:
         t = expr.analyze(env).prune()
@@ -45,3 +44,4 @@ for expr in exprs:
     else:
         print expr, '::', t
     print
+
