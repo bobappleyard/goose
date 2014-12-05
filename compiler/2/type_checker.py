@@ -1,11 +1,27 @@
 """
 
-A type checker for an object-oriented language.
+A type checker for an object-oriented language. This type checker does not
+require type annotations in order to function.
 
-Types are structural: an object's type is the set of methods it supports. This
-is done by making assertions about types when analysing expressions which form a
-set of constraints about a program. Finding the type of an expression requires
-that the constraints be solved.
+The type checker works by making assertions about types when analysing
+expressions. These assertions form a set of constraints about a program. 
+Determining whether a program is well-typed requires that the constraints be 
+solved.
+
+Types are defined to be sets of methods. A type T extends another type U if T 
+has all the methods on U and they are compatible. A method Ti -> To is 
+compatible with Ui -> Uo if Ui extends Ti and To extends Uo.
+
+The type checker uses type variables to represent the constraints as they 
+accumulate. The precise type represented by a type variable is not significant,
+only whether the constraints it represents are consistent with one another.
+
+A type variable maintains two sets of types that it is linked to: the types that
+it extends, and the types that extend it. A graph of subtype/supertype
+relationships is thus maintained by the type checker. When a concrete type is
+introduced into this graph, a consistency check is performed, whereby all of the
+reachable concrete subtypes must extend all of the reachable concrete 
+supertypes.
 
 """
 
@@ -85,25 +101,8 @@ class TypePrinter(object):
 class Method(object):
     def __init__(self, name, in_type, out_type):
         self.name = name
-        self._in_type = in_type
-        self._out_type = out_type
-    
-    @property
-    def in_type(self):
-        if self.name.startswith('@'):
-            return self._in_type
-        return self._in_type
-    
-    @property
-    def out_type(self):
-        if self.name.startswith('@'):
-            return self._out_type
-        return self._out_type
-    
-    def clone(self, env, cmap):
-        in_type = self.in_type.clone(env, cmap)
-        out_type = self.out_type.clone(env, cmap)
-        return Method(self.name, in_type, out_type)
+        self.in_type = in_type
+        self.out_type = out_type
     
     def assert_requirement_satisfied_by(self, other):
         self.in_type.extends(other.in_type)
@@ -177,7 +176,7 @@ class Var(object):
             subs = self.sub_types
             if subs:
                 res = dict((m.name, m) for m in subs[0].methods)
-                for sub in subs[1:]:
+                for sub in subs:
                     seen = set()
                     for m in sub.methods:
                         seen.add(m.name)
