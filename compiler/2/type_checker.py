@@ -116,27 +116,6 @@ class Type(object):
     def __repr__(self):
         return TypePrinter().type_string(self)
     
-    def structurally_equal(self, other, cmap):
-        if self == other:
-            return True
-        rother = cmap.get(self)
-        rself = cmap.get(other)
-        if rself == self or rother == other:
-            return True
-        if rself or rother:
-            return False
-        cmap[self] = other
-        for m in self.methods:
-            ns = [n for n in other.methods if m.name == n.name]
-            if not ns:
-                return False
-            n = ns[0]
-            if not m.in_type.structurally_equal(n.in_type, cmap):
-                return False
-            if not m.out_type.structurally_equal(n.out_type, cmap):
-                return False
-        return True
-    
     def get_method(self, name):
         try:
             return next(m for m in self.methods if m.name == name)
@@ -151,7 +130,7 @@ class Type(object):
             other._sub_types.append(self)
             other.check_extends()
             return
-        if self.structurally_equal(other, {}):
+        if self == other:
             return
         for om in other.methods:
             m = self.get_method(om.name)
@@ -167,11 +146,11 @@ class Var(object):
     def __repr__(self):
         return TypePrinter().type_string(self)
     
-    def structurally_equal(self, other, cmap):
-        return self == other
-    
     @property
     def methods(self):
+        # This doesn't work correctly. It needs to deal with potential 
+        # circularity in order for it to operate. As it is, I don't think it
+        # actually needs to exist,  although it's handy for debugging.
         if self._methods is None:
             subs = self.sub_types
             if subs:
