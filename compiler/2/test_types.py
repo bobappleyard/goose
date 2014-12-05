@@ -22,14 +22,18 @@ exprs = [
     Object(('f', 'x', Call(Id('x'), 'g', Call(Id('x'), 'h', Id('void'))))),
     Object(('f', 'x', Call(Id('x'), 'g', Id('x')))),
     Object(('f', 'x', Call(Id('this'), 'g', Id('x')))),
-    Let([('ider', Object(('id', 'x', Id('x'))))], Begin(
-        Call(Id('ider'), 'id', Id(0)),
-        Call(Id('ider'), 'id', Id('void'))
-    )),
     Call(Id('if'), 'if', Object(('then', 'x', Id(0)), 
                                 ('else', 'x', Call(Id(0), 'add', Id(0))))),
     Call(Id('if'), 'if', Object(('then', 'x', Call(Id(0), 'add', Id(0))), 
                                 ('else', 'x', Id(0)))),
+    Call(Call(Id('if'), 'if', Object(('then', 'x', Call(Id(0), 'add', Id(0))), 
+                                     ('else', 'x', Id(0)))),
+        'add',
+        Id(0)),
+    Call(Call(Id('if'), 'if', Object(('then', 'x', Call(Id(0), 'add', Id(0))), 
+                                     ('else', 'x', Id(0)))),
+        'f',
+        Id(0)),
 ]
 
 num_type = Type()
@@ -43,13 +47,14 @@ if_type = Type(Method('if', Type(Method('then', void_type, if_var),
                                  Method('else', void_type, if_var)),
                             if_var))     
 
-env = TypeEnvironment({0: int_type, 'void': void_type, 'if': if_type},
-                      set([int_type, void_type]))
+env = TypeEnvironment({0: int_type, 'void': void_type, 'if': if_type})
 for expr in exprs:
+    print expr,
     try:
-        t = expr.analyze(env).prune()
+        t = expr.analyze(env)
     except RequirementsError as e:
-        print expr, 'failed:', e
+        print 'failed:', e
     else:
-        print expr, '::', t
+        print '::', t
     print
+

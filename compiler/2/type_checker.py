@@ -2,12 +2,10 @@
 
 A type checker for an object-oriented language.
 
-Types are structural: an object's type is the set of methods it supports. Upon
-this basis nominal typing can be built. Likewise, fields can be constructed as
-pairs of methods.
-
-This checker is able to infer types when they are not specified. This is done
-using type variables that build up constraints.
+Types are structural: an object's type is the set of methods it supports. This
+is done by making assertions about types when analysing expressions which form a
+set of constraints about a program. Finding the type of an expression requires
+that the constraints be solved.
 
 """
 
@@ -30,7 +28,7 @@ class TypePrinter(object):
         return self.render_type_string(t)
     
     def type_var_string(self, t):
-        t = t.prune()
+        t = t
         pt = self.get_primitive_name(t)
         if pt:
             return pt
@@ -60,15 +58,14 @@ class TypePrinter(object):
         return res
     
     def build_type_string(self, t):
-        kind = type(t).__name__
         methods = ", ".join("{0}: {1} -> {2}".format(m.name,
                                                      self.type_var_string(m.in_type),
                                                      self.type_var_string(m.out_type))
                             for m in t.methods)
-        return "{0} {{{1}}}".format(kind, methods)
+        return "{{{0}}}".format(methods)
     
     def render_type_string(self, t):
-        t = t.prune()
+        t = t
         pt = self.get_primitive_name(t)
         if pt:
             return pt
@@ -93,11 +90,15 @@ class Method(object):
     
     @property
     def in_type(self):
-        return self._in_type.prune()
+        if self.name.startswith('@'):
+            return self._in_type
+        return self._in_type
     
     @property
     def out_type(self):
-        return self._out_type.prune()
+        if self.name.startswith('@'):
+            return self._out_type
+        return self._out_type
     
     def clone(self, env, cmap):
         in_type = self.in_type.clone(env, cmap)
@@ -105,8 +106,8 @@ class Method(object):
         return Method(self.name, in_type, out_type)
     
     def assert_requirement_satisfied_by(self, other):
-        self.in_type.assert_subtype_of(other.in_type)
-        other.out_type.assert_subtype_of(self.out_type)
+        self.in_type.extends(other.in_type)
+        other.out_type.extends(self.out_type)
 
 
 class Type(object):
@@ -116,13 +117,26 @@ class Type(object):
     def __repr__(self):
         return TypePrinter().type_string(self)
     
-    def clone(self, env, cmap):
-        if env.is_fixed(self):
-            return self
-        return type(self)(*[m.clone(env, cmap) for m in self.methods])
-    
-    def prune(self):
-        return self
+    def structurally_equal(self, other, cmap):
+        if self == other:
+            return True
+        rother = cmap.get(self)
+        rself = cmap.get(other)
+        if rself == self or rother == other:
+            return True
+        if rself or rother:
+            return False
+        cmap[self] = other
+        for m in self.methods:
+            ns = [n for n in other.methods if m.name == n.name]
+            if not ns:
+                return False
+            n = ns[0]
+            if not m.in_type.structurally_equal(n.in_type, cmap):
+                return False
+            if not m.out_type.structurally_equal(n.out_type, cmap):
+                return False
+        return True
     
     def get_method(self, name):
         try:
@@ -130,55 +144,86 @@ class Type(object):
         except StopIteration:
             raise RequirementsError('missing ' + name)
     
-    def assert_subtype_of(self, other):
+    def extends(self, other):
         """ Assert that self is a subtype of other. That is that other has all
             the methods of self and that the input and output types are 
             compatible. """
-        other = other.prune()
-        if self == other:
+        if isinstance(other, Var):
+            other._sub_types.append(self)
+            other.check_extends()
+            return
+        if self.structurally_equal(other, {}):
             return
         for om in other.methods:
             m = self.get_method(om.name)
             om.assert_requirement_satisfied_by(m)
+
+
+class Var(object):
+    def __init__(self):
+        self._super_types = []
+        self._sub_types = []
+        self._methods = None
+    
+    def __repr__(self):
+        return TypePrinter().type_string(self)
+    
+    def structurally_equal(self, other, cmap):
+        return self == other
+    
+    @property
+    def methods(self):
+        if self._methods is None:
+            subs = self.sub_types
+            if subs:
+                res = dict((m.name, m) for m in subs[0].methods)
+                for sub in subs[1:]:
+                    seen = set()
+                    for m in sub.methods:
+                        seen.add(m.name)
+                    for s in set(res) - seen:
+                        del res[s]
+                self._methods = res.values()
+            else:
+                res = []
+                for sup in self.super_types:
+                    res.extend(sup.methods)
+                self._methods = res
+        return self._methods
+    
+    @property
+    def super_types(self):
+        res = []
+        cur = self
+        for cur in self._super_types:
+            if isinstance(cur, Type):
+                res.append(cur)
+            else:
+                res.extend(cur.super_types)
+        return res
+    
+    @property
+    def sub_types(self):
+        res = []
+        cur = self
+        for cur in self._sub_types:
+            if isinstance(cur, Type):
+                res.append(cur)
+            else:
+                res.extend(cur.sub_types)
+        return res
+    
+    def check_extends(self):
+        for sup in self.super_types:
+            for sub in self.sub_types:
+                sub.extends(sup)
+    
+    def extends(self, other):
+        self._methods = None
         if isinstance(other, Var):
-            other.bound = self
-
-
-class Var(Type):
-    def __init__(self, *methods):
-        super(Var, self).__init__(*methods)
-        self.bound = None
-    
-    def clone(self, env, cmap):
-        if env.is_fixed(self):
-            return self
-        if self.bound is not None:
-            return self.bound.clone(env, cmap)
-        try:
-            return cmap[self]
-        except KeyError:
-            res = super(Var, self).clone(env, cmap)
-            cmap[self] = res
-            return res
-    
-    def get_method(self, name):
-        try:
-            return next(m for m in self.methods if m.name == name)
-        except StopIteration:
-            res = Method(name, Var(), Var())
-            self.methods.append(res)
-            return res
-    
-    def prune(self):
-        if self.bound is None:
-            return self
-        self.bound = self.bound.prune()
-        return self.bound
-    
-    def assert_subtype_of(self, other):
-        super(Var, self).assert_subtype_of(other)
-        if not isinstance(other, Var):
-            self.bound = other
+            other._sub_types.append(self)
+        self._super_types.append(other)
+        self.check_extends()
 
 
 class AST(object):
@@ -196,7 +241,7 @@ class Id(AST):
     __slots__ = ('name',)
 
     def analyze(self, env):
-        return env[self.name].clone(env, {}).prune()
+        return env[self.name]
 
 
 class MultiAST(AST):
@@ -220,8 +265,8 @@ class Object(MultiAST):
         for name, arg, expr in self.attrs:
             input = Var()
             method_env = env.add_fixed(arg, input)
-            res.methods.append(Method(name, input.prune(), expr.analyze(method_env)))
-        res.assert_subtype_of(this)
+            res.methods.append(Method(name, input, expr.analyze(method_env)))
+        res.extends(this)
         return res
 
 
@@ -241,42 +286,9 @@ class Call(AST):
         obj_type = self.obj.analyze(env)
         arg_type = self.arg.analyze(env)
         res_type = Var()
-        req = Var(Method(self.name, arg_type, res_type))
-        obj_type.assert_subtype_of(req)
-        return res_type.prune()
-
-
-class Let(AST):
-    __slots__ = ('bindings', 'expr')
-
-    def analyze_decl(self, env):
-        inner_env = env
-        for name, val in self.bindings:
-            inner_env = inner_env.add_generic(name, val.analyze(env))
-        return inner_env
-    
-    def analyze(self, env):
-        return self.expr.analyze(self.analyze_decl(env))
-
-
-class LetRec(Let):
-    def analyze_decl(self, env):
-        inner_env = env
-        for name, _ in self.bindings:
-            env = env.add_fixed(name, Var())
-        for name, val in self.bindings:
-            inner_env = inner_env.add_generic(name, val.analyze(env))
-        return inner_env
-
-
-class AssertType(AST):
-    __slots__ = ('expr', 'type')
-    
-    def analyze(self, env):
-        candidate = self.expr.analyze(env)
-        res = self.type.clone(env).prune()
-        candidate.assert_subtype_of(res)
-        return res
+        req = Type(Method(self.name, arg_type, res_type))
+        obj_type.extends(req)
+        return res_type
 
 
 class TypeEnvironment(object):
@@ -295,6 +307,7 @@ class TypeEnvironment(object):
         return TypeEnvironment(bindings, self.fixed | frozenset((t,)))
     
     def is_fixed(self, t):
+        return True
         return t in self.fixed
     
     def __getitem__(self, name):
