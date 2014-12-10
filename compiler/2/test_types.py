@@ -34,6 +34,12 @@ exprs = [
                                      ('else', 'x', Id(0)))),
         'f',
         Id(0)),
+    Begin(
+        Call(Id('if'), 'if', Object(('then', 'x', Call(Id(0), 'add', Id(0))), 
+                                    ('else', 'x', Id(0)))),
+        Call(Id('if'), 'if', Object(('then', 'x', Id('void')), 
+                                    ('else', 'x', Id('void')))),
+    )
 ]
 
 num_type = Type()
@@ -58,3 +64,4 @@ for expr in exprs:
         print '::', t
     print
 
+print if_type

@@ -116,6 +116,41 @@ class Type(object):
     def __repr__(self):
         return TypePrinter().type_string(self)
     
+    def structurally_equal(self, other, cmap):
+        rother = cmap.get(self)
+        rself = cmap.get(other)
+        if rself == self or rother == other:
+            return True
+        if rself or rother:
+            return False
+        cmap[self] = other
+        for m in self.methods:
+            ns = [n for n in other.methods if m.name == n.name]
+            if not ns:
+                return False
+            if m.name.startswith('@'):
+                return True
+            n = ns[0]
+            if not m.in_type.structurally_equal(n.in_type, cmap):
+                return False
+            if not m.out_type.structurally_equal(n.out_type, cmap):
+                return False
+        return True
+    
+    def clone(self, env, cmap):
+        if not self.methods:
+            return self
+        try:
+            return cmap[self]
+        except KeyError:
+            res = Type()
+            cmap[self] = res
+            res.methods = [Method(m.name,
+                                  m.in_type.clone(env, cmap),
+                                  m.out_type.clone(env, cmap))
+                           for m in self.methods]
+            return res
+    
     def get_method(self, name):
         try:
             return next(m for m in self.methods if m.name == name)
@@ -130,7 +165,7 @@ class Type(object):
             other._sub_types.append(self)
             other.check_extends()
             return
-        if self == other:
+        if self.structurally_equal(other, {}):
             return
         for om in other.methods:
             m = self.get_method(om.name)
@@ -145,6 +180,38 @@ class Var(object):
     
     def __repr__(self):
         return TypePrinter().type_string(self)
+    
+    def clone(self, env, cmap):
+        if self.is_fixed(env):
+            return self
+        try:
+            return cmap[self]
+        except:
+            res = Var()
+            cmap[self] = res
+            res._sub_types = [t.clone(env, cmap) for t in self._sub_types]
+            res._super_types = [t.clone(env, cmap) for t in self._super_types]
+            return res
+    
+    def is_fixed(self, env):
+        if env.is_fixed(self):
+            return True
+        if any(env.is_fixed(t) for t in self._walk_graph(lambda self: self._sub_types)):
+            return True
+        if any(env.is_fixed(t) for t in self._walk_graph(lambda self: self._super_types)):
+            return True
+        return False
+    
+    def structurally_equal(self, other, cmap):
+        return False
+        #~ rother = cmap.get(self)
+        #~ rself = cmap.get(other)
+        #~ if rself == self or rother == other:
+            #~ return True
+        #~ if rself or rother:
+            #~ return False
+        #~ cmap[self] = other
+        #~ if not all(any(t.structurally_equal(u, cmap) for u
     
     @property
     def methods(self):
@@ -169,26 +236,27 @@ class Var(object):
                 self._methods = res
         return self._methods
     
+    def _walk_graph(self, following):
+        for t in following(self):
+            yield t
+            if isinstance(t, Var):
+                for t in t._walk_graph(following):
+                    yield t
+    
     @property
     def super_types(self):
         res = []
-        cur = self
-        for cur in self._super_types:
-            if isinstance(cur, Type):
-                res.append(cur)
-            else:
-                res.extend(cur.super_types)
+        for t in self._walk_graph(lambda self: self._super_types):
+            if isinstance(t, Type):
+                res.append(t)
         return res
     
     @property
     def sub_types(self):
         res = []
-        cur = self
-        for cur in self._sub_types:
-            if isinstance(cur, Type):
-                res.append(cur)
-            else:
-                res.extend(cur.sub_types)
+        for t in self._walk_graph(lambda self: self._sub_types):
+            if isinstance(t, Type):
+                res.append(t)
         return res
     
     def check_extends(self):
@@ -219,7 +287,7 @@ class Id(AST):
     __slots__ = ('name',)
 
     def analyze(self, env):
-        return env[self.name]
+        return env[self.name].clone(env, {})
 
 
 class MultiAST(AST):
@@ -285,7 +353,6 @@ class TypeEnvironment(object):
         return TypeEnvironment(bindings, self.fixed | frozenset((t,)))
     
     def is_fixed(self, t):
-        return True
         return t in self.fixed
     
     def __getitem__(self, name):
