@@ -99,14 +99,28 @@ class TypePrinter(object):
 
 
 class Method(object):
-    def __init__(self, name, in_type, out_type):
+    def __init__(self, parent, name, in_type, out_type):
         self.name = name
         self.in_type = in_type
         self.out_type = out_type
+        self.parent = parent
     
     def assert_requirement_satisfied_by(self, other):
         self.in_type.extends(other.in_type)
         other.out_type.extends(self.out_type)
+    
+    def contains(self, other):
+        while other:
+            if other == self:
+                return True
+            other = other.parent
+    
+    def clone(self):
+        cmap = {}
+        return Method(self.parent,
+                      self.name,
+                      self.in_type.clone(self, cmap),
+                      self.out_type.clone(self, cmap))
 
 
 class Type(object):
@@ -138,22 +152,11 @@ class Type(object):
         return True
     
     def clone(self, env, cmap):
-        if not self.methods:
-            return self
-        try:
-            return cmap[self]
-        except KeyError:
-            res = Type()
-            cmap[self] = res
-            res.methods = [Method(m.name,
-                                  m.in_type.clone(env, cmap),
-                                  m.out_type.clone(env, cmap))
-                           for m in self.methods]
-            return res
+        return self
     
     def get_method(self, name):
         try:
-            return next(m for m in self.methods if m.name == name)
+            return next(m for m in self.methods if m.name == name).clone()
         except StopIteration:
             raise RequirementsError('missing ' + name)
     
@@ -173,34 +176,26 @@ class Type(object):
 
 
 class Var(object):
-    def __init__(self):
+    def __init__(self, scope=None):
         self._super_types = []
         self._sub_types = []
         self._methods = None
+        self._scope = scope
     
     def __repr__(self):
         return TypePrinter().type_string(self)
     
-    def clone(self, env, cmap):
-        if self.is_fixed(env):
+    def clone(self, scope, cmap):
+        if not scope.contains(self._scope):
             return self
         try:
             return cmap[self]
         except:
-            res = Var()
+            res = Var(self._scope)
             cmap[self] = res
-            res._sub_types = [t.clone(env, cmap) for t in self._sub_types]
-            res._super_types = [t.clone(env, cmap) for t in self._super_types]
+            res._sub_types = [t.clone(scope, cmap) for t in self._sub_types]
+            res._super_types = [t.clone(scope, cmap) for t in self._super_types]
             return res
-    
-    def is_fixed(self, env):
-        if env.is_fixed(self):
-            return True
-        if any(env.is_fixed(t) for t in self._walk_graph(lambda self: self._sub_types)):
-            return True
-        if any(env.is_fixed(t) for t in self._walk_graph(lambda self: self._super_types)):
-            return True
-        return False
     
     def structurally_equal(self, other, cmap):
         return False
@@ -287,7 +282,7 @@ class Id(AST):
     __slots__ = ('name',)
 
     def analyze(self, env):
-        return env[self.name].clone(env, {})
+        return env[self.name]
 
 
 class MultiAST(AST):
@@ -307,11 +302,14 @@ class Object(MultiAST):
     def analyze(self, env):
         res = Type()
         this = Var()
-        env = env.add_fixed('this', this)
+        env = env.bind('this', this)
         for name, arg, expr in self.attrs:
             input = Var()
-            method_env = env.add_fixed(arg, input)
-            res.methods.append(Method(name, input, expr.analyze(method_env)))
+            method_env = env.bind(arg, input)
+            m = Method(env.scope, name, input, None)
+            input._env = m
+            m.out_type = expr.analyze(method_env)
+            res.methods.append(m)
         res.extends(this)
         return res
 
@@ -331,29 +329,30 @@ class Call(AST):
     def analyze(self, env):
         obj_type = self.obj.analyze(env)
         arg_type = self.arg.analyze(env)
-        res_type = Var()
-        req = Type(Method(self.name, arg_type, res_type))
+        res_type = Var(env.scope)
+        req = Type(Method(None, self.name, arg_type, res_type))
         obj_type.extends(req)
         return res_type
 
 
+class GlobalScope(object):
+    parent = None
+    def contains(self, other):
+        return True
+
+
 class TypeEnvironment(object):
-    def __init__(self, bindings=None, fixed=None):
+    def __init__(self, bindings=None, scope=GlobalScope()):
         self.bindings = bindings or {}
-        self.fixed = fixed or frozenset()
+        self.scope = scope
     
-    def add_generic(self, name, t):
+    def bind(self, name, t):
         bindings = copy(self.bindings)
         bindings[name] = t
-        return TypeEnvironment(bindings, self.fixed)
+        return TypeEnvironment(bindings)
     
-    def add_fixed(self, name, t):
-        bindings = copy(self.bindings)
-        bindings[name] = t
-        return TypeEnvironment(bindings, self.fixed | frozenset((t,)))
-    
-    def is_fixed(self, t):
-        return t in self.fixed
+    def in_scope(self, scope):
+        return TypeEnvironment(self.bindings, scope)
     
     def __getitem__(self, name):
         return self.bindings[name]
