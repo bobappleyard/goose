@@ -30,6 +30,10 @@ exprs = [
                                      ('else', 'x', Id(0)))),
         'add',
         Id(0)),
+    Call(Call(Id('if'), 'if', Object(('then', 'x', Id(0)),
+                                     ('else', 'x', Call(Id(0), 'add', Id(0))))),
+        'add',
+        Id(0)),
     Call(Call(Id('if'), 'if', Object(('then', 'x', Call(Id(0), 'add', Id(0))), 
                                      ('else', 'x', Id(0)))),
         'f',
@@ -43,6 +47,16 @@ exprs = [
     Call(Object(('eg', 'id', Call(Id('id'), 'id', Id(0)))),
          'eg',
          Object(('id', 'x', Id('x')))),
+    Call(Object(('eg', 'id', Begin(Call(Id('id'), 'id', Id('void')),
+                                   Call(Id('id'), 'id', Id(0))))),
+         'eg',
+         Object(('id', 'x', Id('x')))),
+    Call(Call(Object(('eg', 'id', Begin(Call(Id('id'), 'id', Id('void')),
+                                        Call(Id('id'), 'id', Id(0))))),
+              'eg',
+              Object(('id', 'x', Id('x')))),
+         'add',
+         Id(0)),
 ]
 
 num_type = Type()
@@ -52,10 +66,10 @@ int_type = Type(Method(GlobalScope(),'@int', Type(), Type()),
                 Method(GlobalScope(),'add', num_type, num_type))
 void_type = Type(Method(GlobalScope(),'@void', Type(), Type()))
 
-if_method = Method(GlobalScope(),'if', None, None)
+if_method = Method(GlobalScope(), 'if', None, None)
 if_var = Var(if_method)
-if_method.in_type = Type(Method(GlobalScope(),'then', void_type, if_var),
-                         Method(GlobalScope(),'else', void_type, if_var))
+if_method.in_type = Type(Method(GlobalScope(), 'then', void_type, if_var),
+                         Method(GlobalScope(), 'else', void_type, if_var))
 if_method.out_type = if_var
 
 if_type = Type(if_method)     

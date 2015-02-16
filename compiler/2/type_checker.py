@@ -175,6 +175,9 @@ class Type(object):
             om.assert_requirement_satisfied_by(m)
 
 
+def scope_name(scope):
+    return scope.name if scope else 'None'
+
 class Var(object):
     def __init__(self, scope=None):
         self._super_types = []
@@ -186,6 +189,7 @@ class Var(object):
         return TypePrinter().type_string(self)
     
     def clone(self, scope, cmap):
+        #~ print scope_name(self._scope), scope_name(scope), scope.contains(self._scope)
         if not scope.contains(self._scope):
             return self
         try:
@@ -307,7 +311,7 @@ class Object(MultiAST):
             input = Var()
             method_env = env.bind(arg, input)
             m = Method(env.scope, name, input, None)
-            input._env = m
+            input._scope = m
             m.out_type = expr.analyze(method_env)
             res.methods.append(m)
         res.extends(this)
@@ -337,6 +341,7 @@ class Call(AST):
 
 class GlobalScope(object):
     parent = None
+    name = 'globals'
     def contains(self, other):
         return True
 
