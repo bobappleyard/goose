@@ -44,6 +44,18 @@ exprs = [
         Call(Id('if'), 'if', Object(('then', 'x', Id('void')), 
                                     ('else', 'x', Id('void')))),
     ),
+    Call(Begin(
+        Call(Id('if'), 'if', Object(('then', 'x', Call(Id(0), 'add', Id(0))), 
+                                    ('else', 'x', Id(0)))),
+        Call(Id('if'), 'if', Object(('then', 'x', Id('void')), 
+                                    ('else', 'x', Id('void')))),
+    ), 'add', Id(0)),
+    Call(Begin(
+        Call(Id('if'), 'if', Object(('then', 'x', Id('void')), 
+                                    ('else', 'x', Id('void')))),
+        Call(Id('if'), 'if', Object(('then', 'x', Id(0)), 
+                                    ('else', 'x', Id(0)))),
+    ), 'add', Id(0)),
     Call(Object(('eg', 'id', Call(Id('id'), 'id', Id(0)))),
          'eg',
          Object(('id', 'x', Id('x')))),
@@ -56,6 +68,12 @@ exprs = [
               'eg',
               Object(('id', 'x', Id('x')))),
          'add',
+         Id(0)),
+    Call(Call(Object(('eg', 'id', Begin(Call(Id('id'), 'id', Id('void')),
+                                        Call(Id('id'), 'id', Id(0))))),
+              'eg',
+              Object(('id', 'x', Id('x')))),
+         'bdd',
          Id(0)),
 ]
 

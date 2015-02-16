@@ -29,17 +29,23 @@ static void tso_schedule(TSO_Runtime *e) {
     e->current_thread = tso_thread_dequeue(&e->run_queue);
 }
 
+static void tso_do_send(TSO_Runtime *e, TSO_Channel *ch, TSO_Thread *sender,
+                        TSO_Thread *receiver) {
+    if (!ch->wait) {
+        ch->state = TSO_CHAN_EMPTY;
+    }
+    sender->communicate(sender, receiver);
+    tso_thread_enqueue(&e->run_queue, receiver);
+    tso_thread_enqueue(&e->run_queue, sender);
+    
+}
+
 void tso_send(TSO_Runtime *e, TSO_Channel *ch) {
     TSO_Thread *sender = e->current_thread;
     e->current_thread = NULL;
     if (ch->state == TSO_CHAN_RECEIVING) {
         TSO_Thread *receiver = tso_thread_dequeue(&ch->wait);
-        if (!ch->wait) {
-            ch->state = TSO_CHAN_EMPTY;
-        }
-        sender->communicate(sender, receiver);
-        tso_thread_enqueue(&e->run_queue, receiver);
-        tso_thread_enqueue(&e->run_queue, sender);
+        tso_do_send(e, ch, sender, receiver);
     } else {
         tso_thread_enqueue(&ch->wait, sender);
         ch->state = TSO_CHAN_SENDING;
@@ -49,14 +55,9 @@ void tso_send(TSO_Runtime *e, TSO_Channel *ch) {
 void tso_receive(TSO_Runtime *e, TSO_Channel *ch) {
     TSO_Thread *receiver = e->current_thread;
     e->current_thread = NULL;
-    if (ch->state == TSO_CHAN_RECEIVING) {
+    if (ch->state == TSO_CHAN_SENDING) {
         TSO_Thread *sender = tso_thread_dequeue(&ch->wait);
-        if (!ch->wait) {
-            ch->state = TSO_CHAN_EMPTY;
-        }
-        sender->communicate(sender, receiver);
-        tso_thread_enqueue(&e->run_queue, sender);
-        tso_thread_enqueue(&e->run_queue, receiver);
+        tso_do_send(e, ch, sender, receiver);
     } else {
         tso_thread_enqueue(&ch->wait, receiver);
         ch->state = TSO_CHAN_RECEIVING;
