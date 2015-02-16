@@ -368,3 +368,4 @@ class TypeEnvironment(object):
     def __getitem__(self, name):
         return self.bindings[name]
 
+

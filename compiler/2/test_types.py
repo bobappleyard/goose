@@ -44,6 +44,12 @@ exprs = [
         Call(Id('if'), 'if', Object(('then', 'x', Id('void')), 
                                     ('else', 'x', Id('void')))),
     ),
+    Begin(
+        Call(Id('if'), 'if', Object(('then', 'x', Id('void')), 
+                                    ('else', 'x', Id('void')))),
+        Call(Id('if'), 'if', Object(('then', 'x', Call(Id(0), 'add', Id(0))), 
+                                    ('else', 'x', Id(0)))),
+    ),
     Call(Object(('eg', 'id', Call(Id('id'), 'id', Id(0)))),
          'eg',
          Object(('id', 'x', Id('x')))),
@@ -68,16 +74,15 @@ exprs = [
 num_type = Type()
 num_type.methods.append(Method(GlobalScope(), 'add', num_type, num_type))
 
-int_type = Type(Method(GlobalScope(),'@int', Type(), Type()),
-                Method(GlobalScope(),'add', num_type, num_type))
-void_type = Type(Method(GlobalScope(),'@void', Type(), Type()))
+int_type = Type(Method(GlobalScope(), '@int', Type(), Type()),
+                Method(GlobalScope(), 'add', num_type, num_type))
+void_type = Type(Method(GlobalScope(), '@void', Type(), Type()))
 
 if_method = Method(GlobalScope(), 'if', None, None)
 if_var = Var(if_method)
 if_method.in_type = Type(Method(GlobalScope(), 'then', void_type, if_var),
                          Method(GlobalScope(), 'else', void_type, if_var))
 if_method.out_type = if_var
-
 if_type = Type(if_method)     
 
 env = TypeEnvironment({0: int_type, 'void': void_type, 'if': if_type})
@@ -92,5 +97,4 @@ for expr in exprs:
         print '::', t
     print
 
-print if_type
-print if_method.out_type.sub_types
+
