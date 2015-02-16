@@ -189,7 +189,7 @@ class Var(object):
         return TypePrinter().type_string(self)
     
     def clone(self, scope, cmap):
-        #~ print scope_name(self._scope), scope_name(scope), scope.contains(self._scope)
+        print scope_name(self._scope), scope_name(scope), scope.contains(self._scope)
         if not scope.contains(self._scope):
             return self
         try:
