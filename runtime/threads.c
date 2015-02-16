@@ -17,8 +17,8 @@ static TSO_Thread *tso_thread_dequeue(TSO_Thread **queue) {
     if (!item) {
         return NULL;
     }
-    item->next = NULL;
     *queue = item->next;
+    item->next = NULL;
     return item;
 }
 
@@ -49,7 +49,7 @@ void tso_send(TSO_Runtime *e, TSO_Channel *ch) {
 void tso_receive(TSO_Runtime *e, TSO_Channel *ch) {
     TSO_Thread *receiver = e->current_thread;
     e->current_thread = NULL;
-    if (ch->state == TSO_CHAN_RECEIVING) {
+    if (ch->state == TSO_CHAN_SENDING) {
         TSO_Thread *sender = tso_thread_dequeue(&ch->wait);
         if (!ch->wait) {
             ch->state = TSO_CHAN_EMPTY;

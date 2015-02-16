@@ -57,6 +57,12 @@ exprs = [
               Object(('id', 'x', Id('x')))),
          'add',
          Id(0)),
+    Call(Call(Object(('eg', 'id', Begin(Call(Id('id'), 'id', Id('void')),
+                                        Call(Id('id'), 'id', Id(0))))),
+              'eg',
+              Object(('id', 'x', Id('x')))),
+         'bdd',
+         Id(0)),
 ]
 
 num_type = Type()
@@ -87,3 +93,4 @@ for expr in exprs:
     print
 
 print if_type
+print if_method.out_type.sub_types
