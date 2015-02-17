@@ -185,9 +185,6 @@ class Type(object):
             om.assert_requirement_satisfied_by(m)
 
 
-def scope_name(scope):
-    return scope.name if scope else 'None'
-
 class Var(object):
     def __init__(self, scope=None):
         self._super_types = []

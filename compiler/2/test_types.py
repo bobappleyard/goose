@@ -92,6 +92,15 @@ exprs = [
          'rec2',
          Id(0)),
     Call(Object(('rec', 'x', Call(Id('this'), 'rec', Id('x')))), 'rawr', Id('void')),
+    Call(Object(('rec', 'x',
+                 Call(Id('if'), 'if', 
+                      Object(('then', '_', Call(Id('x'), 'rec2', Id('this'))),
+                             ('else', '_', Id(0)))))),
+         'rec',
+         Object(('rec2', 'x',
+                 Call(Id('if'), 'if', 
+                      Object(('then', '_', Call(Id('x'), 'rec', Id('this'))),
+                             ('else', '_', Id(0))))))),
 ]
 
 num_type = Type()
