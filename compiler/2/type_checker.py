@@ -195,7 +195,6 @@ class Var(object):
         return TypePrinter().type_string(self)
     
     def clone(self, scope, cmap):
-        print scope_name(self._scope), scope_name(scope), scope.contains(self._scope)
         if not scope.contains(self._scope):
             return self
         try:
@@ -208,15 +207,7 @@ class Var(object):
             return res
     
     def structurally_equal(self, other, cmap):
-        return False
-        #~ rother = cmap.get(self)
-        #~ rself = cmap.get(other)
-        #~ if rself == self or rother == other:
-            #~ return True
-        #~ if rself or rother:
-            #~ return False
-        #~ cmap[self] = other
-        #~ if not all(any(t.structurally_equal(u, cmap) for u
+        return self == other
     
     @property
     def methods(self):
@@ -279,6 +270,8 @@ class Var(object):
 
 class AST(object):
     def __init__(self, *args):
+        if len(args) != len(self.__slots__):
+            raise TypeError('wrong number of arguments')
         for n, v in zip(self.__slots__, args):
             setattr(self, n, v)
     

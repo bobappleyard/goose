@@ -81,6 +81,16 @@ exprs = [
               Object(('id', 'x', Id('x')))),
          'bdd',
          Id(0)),
+    Object(('rec', 'x', Call(Id('this'), 'rec', Id('x')))),
+    Call(Object(('rec2', 'x',
+                 Call(Object(('inner', 'that',
+                              Call(Id('if'), 'if', 
+                                   Object(('then', '_', Call(Id('that'), 'rec2', Id('x'))),
+                                          ('else', '_', Id(0)))))),
+                      'inner',
+                      Id('this')))),
+         'rec2',
+         Id(0)),
 ]
 
 num_type = Type()
