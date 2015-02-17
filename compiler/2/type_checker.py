@@ -23,6 +23,12 @@ introduced into this graph, a consistency check is performed, whereby all of the
 reachable concrete subtypes must extend all of the reachable concrete 
 supertypes.
 
+Generic types are represented by copying type variables. A type variable has a
+scope associated with it (the scope in which the variable was introduced). When
+a method is checked for compatibility its input and output types are copied. A
+variable is only copied if it is within the scope of that method being checked
+for compatibility.
+
 """
 
 import string
@@ -211,7 +217,7 @@ class Var(object):
     def methods(self):
         # This doesn't work correctly. It needs to deal with potential 
         # circularity in order for it to operate. As it is, I don't think it
-        # actually needs to exist,  although it's handy for debugging.
+        # actually needs to exist, although it's handy for debugging.
         if self._methods is None:
             subs = self.sub_types
             if subs:
@@ -273,9 +279,10 @@ class Var(object):
 
 class AST(object):
     def __init__(self, *args):
-        if len(args) != len(self.__slots__):
+        sls = self.__slots__
+        if len(args) != len(sls):
             raise TypeError('wrong number of arguments')
-        for n, v in zip(self.__slots__, args):
+        for n, v in zip(sls, args):
             setattr(self, n, v)
     
     def __repr__(self):
@@ -294,6 +301,8 @@ class Id(AST):
 class MultiAST(AST):
     def __init__(self, *args):
         sls = self.__slots__
+        if len(args)+1 < len(self.__slots__):
+            raise TypeError('wrong number of arguments')
         for n, v in zip(sls[:-1], args):
             setattr(self, n, v)
         setattr(self, sls[-1], args[len(sls)-1:])
