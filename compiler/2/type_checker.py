@@ -115,12 +115,11 @@ class Method(object):
                 return True
             other = other.parent
     
-    def clone(self):
-        cmap = {}
+    def clone(self, env, cmap):
         return Method(self.parent,
                       self.name,
-                      self.in_type.clone(self, cmap),
-                      self.out_type.clone(self, cmap))
+                      self.in_type.clone(env, cmap),
+                      self.out_type.clone(env, cmap))
 
 
 class Type(object):
@@ -152,13 +151,20 @@ class Type(object):
         return True
     
     def clone(self, env, cmap):
-        return self
-    
+        try:
+            return cmap[self]
+        except KeyError:
+            res = Type()
+            cmap[self] = res
+            res.methods = [m.clone(env, cmap) for m in self.methods]
+            return res
+            
     def get_method(self, name):
         try:
-            return next(m for m in self.methods if m.name == name).clone()
+            m = next(m for m in self.methods if m.name == name)
         except StopIteration:
             raise RequirementsError('missing ' + name)
+        return m.clone(m, {})
     
     def extends(self, other):
         """ Assert that self is a subtype of other. That is that other has all
@@ -361,4 +367,5 @@ class TypeEnvironment(object):
     
     def __getitem__(self, name):
         return self.bindings[name]
+
 

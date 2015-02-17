@@ -88,6 +88,9 @@ class Concrete(Type):
                 continue
             print self, "->", m.name, '[arrowhead=inv]'
     
+    def appropriate_result_scope(self):
+        return global_scope
+    
     def extended_by(self, other):
         pass
     
@@ -147,6 +150,10 @@ class Abstract(Type):
         self.scope = scope
         self.methods = []
         self.subtypes = []
+    
+    def appropriate_result_scope(self):
+        #return global_scope
+        return self.scope #or global_scope
     
     def extended_by(self, other):
         self.subtypes.append(other)

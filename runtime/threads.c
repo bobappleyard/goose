@@ -17,8 +17,8 @@ static TSO_Thread *tso_thread_dequeue(TSO_Thread **queue) {
     if (!item) {
         return NULL;
     }
-    item->next = NULL;
     *queue = item->next;
+    item->next = NULL;
     return item;
 }
 

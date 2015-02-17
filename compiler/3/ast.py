@@ -1,4 +1,5 @@
 import type_system
+import sys
 
 class AST(object):
     def __init__(self, *args):
@@ -19,6 +20,7 @@ class Var(AST):
     __slots__ = ('name',)
     
     def analyze(self, vartypes, method):
+        print >> sys.stderr, method.name, self
         return vartypes[self.name]
 
 
@@ -26,6 +28,7 @@ class Object(AST):
     __slots__ = ('methods',)
     
     def analyze(self, vartypes, method):
+        print >> sys.stderr, method.name, self
         thistype = type_system.Abstract(method)
         inner = vartypes.bind({'this': thistype})
         restype = type_system.Concrete([m.analyze_method(inner, method) for m in self.methods])
@@ -37,6 +40,7 @@ class Method(AST):
     __slots__ = ('name', 'arg', 'body')
     
     def analyze_method(self, vartypes, method):
+        print >> sys.stderr, method.name, self
         argtype = type_system.Abstract(None)
         resm = type_system.Method(method, self.name, argtype, None)
         argtype.scope = resm
@@ -52,9 +56,10 @@ class Call(AST):
     __slots__ = ('obj', 'name', 'arg')
     
     def analyze(self, vartypes, method):
+        print >> sys.stderr, method.name, self
         objtype = self.obj.analyze(vartypes, method)
         argtype = self.arg.analyze(vartypes, method)
-        restype = type_system.Abstract(type_system.global_scope)
+        restype = type_system.Abstract(argtype.appropriate_result_scope())
         m = type_system.Method(None, self.name, argtype, restype)
         objtype.has_method(m, {})
         return restype
@@ -64,6 +69,7 @@ class Begin(AST):
     __slots__ = ('exprs',)
     
     def analyze(self, vartypes, method):
+        print >> sys.stderr, method.name, self
         for expr in self.exprs:
             res = expr.analyze(vartypes, method)
         return res
