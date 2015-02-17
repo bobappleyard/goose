@@ -141,8 +141,6 @@ class Type(object):
             ns = [n for n in other.methods if m.name == n.name]
             if not ns:
                 return False
-            if m.name.startswith('@'):
-                return True
             n = ns[0]
             if not m.in_type.structurally_equal(n.in_type, cmap):
                 return False
