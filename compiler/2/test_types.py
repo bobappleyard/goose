@@ -91,6 +91,7 @@ exprs = [
                       Id('this')))),
          'rec2',
          Id(0)),
+    Call(Object(('rec', 'x', Call(Id('this'), 'rec', Id('x')))), 'rawr', Id('void')),
 ]
 
 num_type = Type()
@@ -113,7 +114,7 @@ for expr in exprs:
     try:
         t = expr.analyze(env)
     except Exception as e:
-        raise
+#        raise
         print 'failed:', e
     else:
         print '::', t

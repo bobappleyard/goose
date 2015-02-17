@@ -232,11 +232,16 @@ class Var(object):
                 self._methods = res
         return self._methods
     
-    def _walk_graph(self, following):
+    def _walk_graph(self, following, seen=None):
+        if seen is None:
+            seen = set()
         for t in following(self):
+            if t in seen:
+                continue
+            seen.add(t)
             yield t
             if isinstance(t, Var):
-                for t in t._walk_graph(following):
+                for t in t._walk_graph(following, seen):
                     yield t
     
     @property
