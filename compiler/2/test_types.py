@@ -113,7 +113,7 @@ for expr in exprs:
     try:
         t = expr.analyze(env)
     except Exception as e:
-#        raise
+        raise
         print 'failed:', e
     else:
         print '::', t
