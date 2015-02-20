@@ -1,4 +1,5 @@
 from type_checker import *
+from ast import *
 
 exprs = [
     Id(0),
@@ -69,6 +70,10 @@ exprs = [
                                    Call(Id('id'), 'id', Id(0))))),
          'eg',
          Object(('id', 'x', Id('x')))),
+    Call(Object(('eg', 'id', Begin(Call(Id('id'), 'id', Id(0)),
+                                   Call(Id('id'), 'id', Id('void'))))),
+         'eg',
+         Object(('id', 'x', Id('x')))),
     Call(Call(Object(('eg', 'id', Begin(Call(Id('id'), 'id', Id('void')),
                                         Call(Id('id'), 'id', Id(0))))),
               'eg',
@@ -134,5 +139,6 @@ for expr in exprs:
     else:
         print '::', t
     print
+
 
 

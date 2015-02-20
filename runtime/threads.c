@@ -2,6 +2,10 @@ static void tso_init_threads(TSO_Runtime *e) {
     e->run_queue = NULL;
 }
 
+static void tso_run_thread(TSO_Runtime *e) {
+    e->current_thread->fp->pc(e);
+}
+
 static void tso_thread_enqueue(TSO_Thread **queue, TSO_Thread *thread) {
     TSO_Thread *item = *queue;
     if (!item) {
@@ -27,6 +31,10 @@ static void tso_schedule(TSO_Runtime *e) {
         tso_thread_enqueue(&e->run_queue, e->current_thread);
     }
     e->current_thread = tso_thread_dequeue(&e->run_queue);
+}
+
+void tso_thread_spawn(TSO_Runtime *e, TSO_Thread *t) {
+    tso_thread_enqueue(&e->run_queue, t);
 }
 
 static void tso_do_send(TSO_Runtime *e, TSO_Channel *ch, TSO_Thread *sender,

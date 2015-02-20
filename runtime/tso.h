@@ -1,8 +1,11 @@
 #ifndef TSO_H
 #define TSO_H
 
+#include <stdint.h>
+
 // Forward declarations.
 typedef struct TSO_Thread TSO_Thread;
+typedef struct TSO_Frame TSO_Frame;
 typedef struct TSO_Channel TSO_Channel;
 typedef struct TSO_Communication TSO_Communication;
 typedef struct TSO_Arena TSO_Arena;
@@ -47,11 +50,6 @@ use more CPU cores).
 
 */
 
-// Represents some work to be done by the program. The compiler will emit many
-// instances of this type as part of its code generation. It won't quite be a
-// single instruction, but will probably not be a great deal of work either.
-typedef void (*TSO_Instruction)(TSO_Runtime *e);
-
 // Represents an interthread communication. Instances of this will also be 
 // emitted by the compiler.
 typedef void (*TSO_CommunicationFunction)(TSO_Thread *from, TSO_Thread *to);
@@ -65,16 +63,39 @@ struct TSO_Thread {
     // or the queue of threads waiting on a channel. The currently running
     // thread is not in any queues.
     TSO_Thread *next;
-    // The instruction that will be executed next.
-    TSO_Instruction pc;
+    // The current position on the stack.
     // Any pending communication.
     TSO_CommunicationFunction communicate;
-    // The current position on the stack and the position of the frame.
-    char *sp, *fp;
+    char *sp;
+    // The current frame.
+    TSO_Frame *fp;
     // The call stack. This is untyped here -- the generated code should know
     // how to treat this data appropriately.
     char stack[TSO_STACK_SIZE];
 };
+
+// Represents some work to be done by the program. The compiler will emit many
+// instances of this type as part of its code generation. It won't quite be a
+// single instruction, but will probably not be a great deal of work either.
+typedef void (*TSO_Instruction)(TSO_Runtime *e);
+
+// Represents a stack map. This marks objects as live when performing garbage
+// collection.
+typedef void (*TSO_StackMap)(TSO_Runtime *e, TSO_Frame *fp);
+
+// A pointer into the stack.
+struct TSO_Frame {
+    // The instruction that will be executed next.
+    TSO_Instruction pc;
+    // The stack map for this frame.
+    TSO_StackMap stack_map;
+    // Frame size.
+    int size;
+    // The rest of the stack. It will not actually be this size.
+    uint8_t stack[TSO_STACK_SIZE];
+};
+
+void tso_thread_spawn(TSO_Runtime *e, TSO_Thread *t);
 
 /*
 
@@ -100,6 +121,19 @@ struct TSO_Channel {
 
 void tso_send(TSO_Runtime *e, TSO_Channel *ch);
 void tso_receive(TSO_Runtime *e, TSO_Channel *ch);
+
+/*
+ 
+*/
+
+#define ARENA_BUFFER_SIZE (1024*1024)
+
+struct TSO_Arena {
+    uint8_t *pos, *front, *back;
+    uint8_t buffer[2*ARENA_BUFFER_SIZE];
+};
+
+
 
 #endif
 
