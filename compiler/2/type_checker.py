@@ -111,9 +111,9 @@ class Method(object):
         self.out_type = out_type
         self.parent = parent
     
-    def assert_requirement_satisfied_by(self, other):
-        self.in_type.extends(other.in_type)
-        other.out_type.extends(self.out_type)
+    def assert_requirement_satisfied_by(self, other, seen):
+        self.in_type.extends(other.in_type, seen)
+        other.out_type.extends(self.out_type, seen)
     
     def contains(self, other):
         while other:
@@ -170,19 +170,22 @@ class Type(object):
             raise RequirementsError('missing ' + name)
         return m.clone(m, {})
     
-    def extends(self, other):
+    def extends(self, other, seen):
         """ Assert that self is a subtype of other. That is that other has all
             the methods of self and that the input and output types are 
             compatible. """
+        if (self, other) in seen:
+            return
+        seen.add((self, other))
         if isinstance(other, Var):
             other._sub_types.append(self)
-            other.check_extends()
+            other.check_extends(seen)
             return
         if self.structurally_equal(other, {}):
             return
         for om in other.methods:
             m = self.get_method(om.name)
-            om.assert_requirement_satisfied_by(m)
+            om.assert_requirement_satisfied_by(m, seen)
 
 
 class Var(object):
@@ -261,16 +264,16 @@ class Var(object):
                 res.append(t)
         return res
     
-    def check_extends(self):
+    def check_extends(self, seen):
         for sup in self.super_types:
             for sub in self.sub_types:
-                sub.extends(sup)
+                sub.extends(sup, seen)
     
-    def extends(self, other):
+    def extends(self, other, seen):
         self._methods = None
         if isinstance(other, Var):
             other._sub_types.append(self)
         self._super_types.append(other)
-        self.check_extends()
+        self.check_extends(seen)
 
 
