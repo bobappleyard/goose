@@ -48,7 +48,7 @@ class Object(MultiAST):
             input._scope = m
             m.out_type = expr.analyze(method_env)
             res.methods.append(m)
-        res.extends(this)
+        res.extends(this, set())
         return res
 
 
@@ -69,7 +69,7 @@ class Call(AST):
         arg_type = self.arg.analyze(env)
         res_type = Var(env.scope)
         req = Type(Method(None, self.name, arg_type, res_type))
-        obj_type.extends(req)
+        obj_type.extends(req, set())
         return res_type
 
 

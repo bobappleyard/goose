@@ -66,7 +66,8 @@ struct TSO_Thread {
     // The current position on the stack.
     // Any pending communication.
     TSO_CommunicationFunction communicate;
-    char *sp;
+    // The top of the stack.
+    uint8_t *sp;
     // The current frame.
     TSO_Frame *fp;
     // The call stack. This is untyped here -- the generated code should know

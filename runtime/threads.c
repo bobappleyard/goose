@@ -45,7 +45,6 @@ static void tso_do_send(TSO_Runtime *e, TSO_Channel *ch, TSO_Thread *sender,
     sender->communicate(sender, receiver);
     tso_thread_enqueue(&e->run_queue, receiver);
     tso_thread_enqueue(&e->run_queue, sender);
-    
 }
 
 void tso_send(TSO_Runtime *e, TSO_Channel *ch) {
