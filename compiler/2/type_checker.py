@@ -138,7 +138,7 @@ class Type(object):
     def structurally_equal(self, other, cmap):
         rother = cmap.get(self)
         rself = cmap.get(other)
-        if rself == self or rother == other:
+        if id(rself) == id(self) or id(rother) == id(other):
             return True
         if rself or rother:
             return False
@@ -174,6 +174,10 @@ class Type(object):
         """ Assert that self is a subtype of other. That is that other has all
             the methods of self and that the input and output types are 
             compatible. """
+        #print self
+        #print other
+        #print self.structurally_equal(other, {})
+        #print
         if (self, other) in seen:
             return
         seen.add((self, other))
@@ -211,7 +215,17 @@ class Var(object):
             return res
     
     def structurally_equal(self, other, cmap):
-        return self == other
+        if not isinstance(other, Var):
+            return False
+        return self._check_equality(self.super_types, other.super_types, cmap) \
+           and self._check_equality(self.sub_types, other.sub_types, cmap)
+    
+    def _check_equality(self, self_types, other_types, cmap):
+        for st in self_types:
+            if not any(st.structurally_equal(ot, cmap)
+                       for ot in other_types):
+                return False
+        return True
     
     @property
     def methods(self):

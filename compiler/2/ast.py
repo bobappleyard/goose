@@ -48,7 +48,7 @@ class Object(MultiAST):
             input._scope = m
             m.out_type = expr.analyze(method_env)
             res.methods.append(m)
-        res.extends(this, set())
+        res.extends(this, env.seen)
         return res
 
 
@@ -69,7 +69,7 @@ class Call(AST):
         arg_type = self.arg.analyze(env)
         res_type = Var(env.scope)
         req = Type(Method(None, self.name, arg_type, res_type))
-        obj_type.extends(req, set())
+        obj_type.extends(req, env.seen)
         return res_type
 
 
@@ -84,6 +84,7 @@ class TypeEnvironment(object):
     def __init__(self, bindings=None, scope=GlobalScope()):
         self.bindings = bindings or {}
         self.scope = scope
+        self.seen = set()
     
     def bind(self, name, t):
         bindings = copy(self.bindings)

@@ -138,12 +138,15 @@ if_method.out_type = if_var
 if_type = Type(if_method)     
 
 env = TypeEnvironment({0: int_type, 'void': void_type, 'if': if_type})
+
+int_type.extends(int_type, env.seen)
+
 for expr in exprs:
     print expr,
     try:
         t = expr.analyze(env)
     except Exception as e:
-#        raise
+        #raise
         print 'failed:', e
     else:
         print '::', t
