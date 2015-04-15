@@ -39,7 +39,11 @@ static void tso_memory_mark_threads(TSO_Runtime *e) {
 }
 
 static void tso_memory_collect(TSO_Runtime *e) {
+    uint8_t *tmp = e->heap->front;
+    e->heap->front = e->heap->back;
+    e->heap->back = tmp;
     tso_memory_mark_threads(e);
+    
 }
 
 
