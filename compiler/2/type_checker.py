@@ -121,11 +121,11 @@ class Method(object):
                 return True
             other = other.parent
     
-    def clone(self, env, cmap, cloned):
+    def clone(self, env, cmap):
         return Method(self.parent,
                       self.name,
-                      self.in_type.clone(env, cmap, cloned),
-                      self.out_type.clone(env, cmap, cloned))
+                      self.in_type.clone(env, cmap),
+                      self.out_type.clone(env, cmap))
 
 
 class Type(object):
@@ -135,38 +135,57 @@ class Type(object):
     def __repr__(self):
         return TypePrinter().type_string(self)
     
-    def clone(self, env, cmap, cloned):
+    def structurally_equal(self, other, cmap):
+        rother = cmap.get(self)
+        rself = cmap.get(other)
+        if id(rself) == id(self) or id(rother) == id(other):
+            return True
+        if rself or rother:
+            return False
+        cmap[self] = other
+        for m in self.methods:
+            ns = [n for n in other.methods if m.name == n.name]
+            if not ns:
+                return False
+            n = ns[0]
+            if not m.in_type.structurally_equal(n.in_type, cmap):
+                return False
+            if not m.out_type.structurally_equal(n.out_type, cmap):
+                return False
+        return True
+    
+    def clone(self, env, cmap):
         try:
             return cmap[self]
         except KeyError:
             res = Type()
             cmap[self] = res
-            cloned = [False]
-            res.methods = [m.clone(env, cmap, cloned) for m in self.methods]
-            if cloned[0]:
-                return res
-            cmap[self] = self
-            return self
+            res.methods = [m.clone(env, cmap) for m in self.methods]
+            return res
             
     def get_method(self, name):
         try:
             m = next(m for m in self.methods if m.name == name)
         except StopIteration:
             raise RequirementsError('missing ' + name)
-        return m.clone(m, {}, [False])
+        return m.clone(m, {self:self})
     
     def extends(self, other, seen):
         """ Assert that self is a subtype of other. That is that other has all
             the methods of self and that the input and output types are 
             compatible. """
-        if self == other:
-            return
+        #print self
+        #print other
+        #print self.structurally_equal(other, {})
+        #print
         if (self, other) in seen:
             return
         seen.add((self, other))
         if isinstance(other, Var):
             other._sub_types.append(self)
             other.check_extends(seen)
+            return
+        if self.structurally_equal(other, {}):
             return
         for om in other.methods:
             m = self.get_method(om.name)
@@ -183,18 +202,30 @@ class Var(object):
     def __repr__(self):
         return TypePrinter().type_string(self)
     
-    def clone(self, scope, cmap, cloned):
+    def clone(self, scope, cmap):
         if not scope.contains(self._scope):
             return self
         try:
-            cloned[0] = True
             return cmap[self]
         except:
             res = Var(self._scope)
             cmap[self] = res
-            res._sub_types = [t.clone(scope, cmap, cloned) for t in self._sub_types]
-            res._super_types = [t.clone(scope, cmap, cloned) for t in self._super_types]
+            res._sub_types = [t.clone(scope, cmap) for t in self._sub_types]
+            res._super_types = [t.clone(scope, cmap) for t in self._super_types]
             return res
+    
+    def structurally_equal(self, other, cmap):
+        if not isinstance(other, Var):
+            return False
+        return self._check_equality(self.super_types, other.super_types, cmap) \
+           and self._check_equality(self.sub_types, other.sub_types, cmap)
+    
+    def _check_equality(self, self_types, other_types, cmap):
+        for st in self_types:
+            if not any(st.structurally_equal(ot, cmap)
+                       for ot in other_types):
+                return False
+        return True
     
     @property
     def methods(self):
@@ -253,8 +284,6 @@ class Var(object):
                 sub.extends(sup, seen)
     
     def extends(self, other, seen):
-        if self == other:
-            return
         self._methods = None
         if isinstance(other, Var):
             other._sub_types.append(self)

@@ -124,7 +124,7 @@ int_type.methods = [
     int_add_method,
     Method(GlobalScope(), 'add_to_int', int_type, int_type)
 ]
-int2int_add_method = Method(GlobalScope(), 'add_to_int', int_type, None)
+int2int_add_method = Method(int_add_method, 'add_to_int', int_type, None)
 int_ret_type = Var(int2int_add_method)
 int2int_add_method.out_type = int_ret_type
 int_add_method.in_type = Type(int2int_add_method)
@@ -134,8 +134,8 @@ void_type = Type(Method(GlobalScope(), '@void', Type(), Type()))
 
 if_method = Method(GlobalScope(), 'if', None, None)
 if_var = Var(if_method)
-if_method.in_type = Type(Method(if_method, 'then', void_type, if_var),
-                         Method(if_method, 'else', void_type, if_var))
+if_method.in_type = Type(Method(GlobalScope(), 'then', void_type, if_var),
+                         Method(GlobalScope(), 'else', void_type, if_var))
 if_method.out_type = if_var
 if_type = Type(if_method)     
 
@@ -153,6 +153,7 @@ for expr in exprs:
     else:
         print '::', t
     print
+    
 
 
 
