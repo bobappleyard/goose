@@ -40,11 +40,11 @@ class Object(MultiAST):
     def analyze(self, env):
         res = Type()
         this = Var()
-        env = env.bind('this', this)
+        env = env.bind('this', this, env.scope)
         for name, arg, expr in self.attrs:
             input = Var()
-            method_env = env.bind(arg, input)
             m = Method(env.scope, name, input, None)
+            method_env = env.bind(arg, input, m)
             input._scope = m
             m.out_type = expr.analyze(method_env)
             res.methods.append(m)
@@ -81,18 +81,15 @@ class GlobalScope(object):
 
 
 class TypeEnvironment(object):
-    def __init__(self, bindings=None, scope=GlobalScope()):
+    def __init__(self, bindings=None, scope=GlobalScope(), seen=None):
         self.bindings = bindings or {}
         self.scope = scope
-        self.seen = set()
+        self.seen = seen or set()
     
-    def bind(self, name, t):
+    def bind(self, name, t, scope):
         bindings = copy(self.bindings)
         bindings[name] = t
-        return TypeEnvironment(bindings)
-    
-    def in_scope(self, scope):
-        return TypeEnvironment(self.bindings, scope)
+        return TypeEnvironment(bindings, scope, self.seen)
     
     def __getitem__(self, name):
         return self.bindings[name]
