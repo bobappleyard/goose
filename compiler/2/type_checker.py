@@ -174,18 +174,14 @@ class Type(object):
         """ Assert that self is a subtype of other. That is that other has all
             the methods of self and that the input and output types are 
             compatible. """
-        #print self
-        #print other
-        #print self.structurally_equal(other, {})
-        #print
         if (self, other) in seen:
             return
         seen.add((self, other))
+        if self.structurally_equal(other, {}):
+            return
         if isinstance(other, Var):
             other._sub_types.append(self)
             other.check_extends(seen)
-            return
-        if self.structurally_equal(other, {}):
             return
         for om in other.methods:
             m = self.get_method(om.name)
@@ -215,17 +211,7 @@ class Var(object):
             return res
     
     def structurally_equal(self, other, cmap):
-        if not isinstance(other, Var):
-            return False
-        return self._check_equality(self.super_types, other.super_types, cmap) \
-           and self._check_equality(self.sub_types, other.sub_types, cmap)
-    
-    def _check_equality(self, self_types, other_types, cmap):
-        for st in self_types:
-            if not any(st.structurally_equal(ot, cmap)
-                       for ot in other_types):
-                return False
-        return True
+        return self == other
     
     @property
     def methods(self):
