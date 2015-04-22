@@ -32,7 +32,6 @@ for compatibility.
 """
 
 import string
-from copy import copy
 
 class RequirementsError(Exception):
     pass
@@ -138,7 +137,7 @@ class Type(object):
     def structurally_equal(self, other, cmap):
         rother = cmap.get(self)
         rself = cmap.get(other)
-        if id(rself) == id(self) or id(rother) == id(other):
+        if rself == self or rother == other:
             return True
         if rself or rother:
             return False

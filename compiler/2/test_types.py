@@ -4,6 +4,7 @@ from ast import *
 exprs = [
     Id(0),
     Call(Id(0), 'add', Id(0)),
+    Call(Id(0), 'add', Id(0.5)),
     Object(('id', 'x', Id('x'))),
     Object(('self', 'x', Id('this'))),
     Call(Id(0), 'add', Object(('add_to_int', 'x', Id('x')))),
@@ -114,32 +115,41 @@ exprs = [
                       Id('this'))))),
 ]
 
-num_type = Type()
-num_type.methods.append(Method(GlobalScope(), 'add', num_type, num_type))
 
-int_add_method = Method(GlobalScope(), 'add', None, None)
+global_scope = GlobalScope()
+
+num_type = Type()
+num_type.methods.append(Method(global_scope, 'add', num_type, num_type))
+
+int_add_method = Method(global_scope, 'add', None, None)
 int_type = Type()
 int_type.methods = [
-    Method(GlobalScope(), '@int', Type(), Type()),
+    Method(global_scope, '@int', Type(), Type()),
     int_add_method,
-    Method(GlobalScope(), 'add_to_int', int_type, int_type)
+    Method(global_scope, 'add_to_int', int_type, int_type)
 ]
-int2int_add_method = Method(int_add_method, 'add_to_int', int_type, None)
-int_ret_type = Var(int2int_add_method)
+int2int_add_method = Method(global_scope, 'add_to_int', int_type, None)
+int_ret_type = Var(int_add_method)
 int2int_add_method.out_type = int_ret_type
 int_add_method.in_type = Type(int2int_add_method)
 int_add_method.out_type = int_ret_type
 
-void_type = Type(Method(GlobalScope(), '@void', Type(), Type()))
+void_type = Type(Method(global_scope, '@void', Type(), Type()))
 
-if_method = Method(GlobalScope(), 'if', None, None)
+if_method = Method(global_scope, 'if', None, None)
 if_var = Var(if_method)
-if_method.in_type = Type(Method(GlobalScope(), 'then', void_type, if_var),
-                         Method(GlobalScope(), 'else', void_type, if_var))
+if_method.in_type = Type(Method(global_scope, 'then', void_type, if_var),
+                         Method(global_scope, 'else', void_type, if_var))
 if_method.out_type = if_var
 if_type = Type(if_method)     
 
-env = TypeEnvironment({0: int_type, 'void': void_type, 'if': if_type})
+float_type = Type()
+float_type.methods = [
+    Method(global_scope, '@float', Type(), Type()),
+    Method(global_scope, 'add_to_int', int_type, float_type)
+]
+
+env = TypeEnvironment({0: int_type, 0.5: float_type, 'void': void_type, 'if': if_type})
 
 int_type.extends(int_type, env.seen)
 

@@ -1,4 +1,5 @@
 from type_checker import *
+from copy import copy
 
 class AST(object):
     def __init__(self, *args):
