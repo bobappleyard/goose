@@ -49,7 +49,6 @@ class TypePrinter(object):
         return self.render_type_string(t)
     
     def type_var_string(self, t):
-        t = t
         pt = self.get_primitive_name(t)
         if pt:
             return pt
@@ -79,6 +78,8 @@ class TypePrinter(object):
         return res
     
     def build_type_string(self, t):
+        if isinstance(t, Var) and not t.sub_types and not t.super_types:
+            return "?"
         methods = ", ".join("{0}: {1} -> {2}".format(m.name,
                                                      self.type_var_string(m.in_type),
                                                      self.type_var_string(m.out_type))

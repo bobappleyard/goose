@@ -14,6 +14,14 @@ exprs = [
         ('gety', 'x', Call(Id('this'), 'y', Id('void'))),
         ('y', 'x', Id(0)),
     ),
+    Call(
+        Object(
+            ('gety', 'x', Call(Id('this'), 'y', Id('void'))),
+            ('y', 'x', Id(0)),
+        ),
+        'gety',
+        Id('void')
+    ),
     Call(Object(('gety', 'x', Call(Id('x'), 'y', Id('void')))),
          'gety',
          Object(('y', 'x', Id(0)))),
