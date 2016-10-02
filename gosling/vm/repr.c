@@ -1,13 +1,3 @@
-static bool gosl_eq(Gosl left, Gosl right) {
-    if (left.as_float == right.as_float) {
-        return true;
-    }
-    if (left.as_bits.tag != right.as_bits.tag) {
-        return false;
-    }
-    return left.as_bits.val == right.as_bits.val;
-}
-
 // Create a tagged representation of a value. Return a NaN floating-point value
 // with the tag and value as payloads.
 static Gosl gosl_tagged(int tag, uint64_t val) {
@@ -18,6 +8,29 @@ static Gosl gosl_tagged(int tag, uint64_t val) {
     return r;
 }
 
+static bool gosl_is_nan(Gosl x) {
+    if (x.as_bits.marker != GOSL_NAN_MARK) {
+        return false;
+    }
+    if (x.as_bits.tag != GOSL_NAN.as_bits.tag) {
+        return false;
+    }
+    return x.as_bits.val == GOSL_NAN.as_bits.val;
+}
+
+static bool gosl_eq(Gosl left, Gosl right) {
+    if (left.as_float == right.as_float) {
+        return true;
+    }
+    if (gosl_is_nan(left) || gosl_is_nan(right)) {
+        return false;
+    }
+    if (left.as_bits.tag != right.as_bits.tag) {
+        return false;
+    }
+    return left.as_bits.val == right.as_bits.val;
+}
+
 // Package an object into a NaN.
 static Gosl gosl_ptr(uint8_t tag, void *ptr) {
     uintptr_t pint = (uintptr_t) ptr;
@@ -25,17 +38,18 @@ static Gosl gosl_ptr(uint8_t tag, void *ptr) {
     return gosl_tagged(tag, pint);
 }
 
-// Retrieve the object stored inside the value. If the value is not an objet,
+// Retrieve the object stored inside the value. If the value is not an object,
 // return NULL.
-static void *gosl_get_ptr(uint8_t tag, Gosl val) {
+static Gosl *gosl_get_object(Gosl val) {
     if (val.as_bits.marker != GOSL_NAN_MARK) {
         return NULL;
     }
     uintptr_t pint = (uintptr_t) val.as_bits.val;
-    if (val.as_bits.tag == tag) {
+    if (val.as_bits.tag == GOSL_OBJ_TAG) {
         return (void *) pint;
     }
-    if (val.as_bits.tag == tag + 1) {
+    if (val.as_bits.tag == GOSL_OBJ_TAG + 1) {
+        // In the upper region of canonical space.
         pint |= (0xffffLL << 48);
         return (void *) pint;
     }
@@ -64,11 +78,6 @@ static Gosl gosl_object(Gosl *obj) {
 }
 
 //
-static Gosl *gosl_get_object(Gosl obj) {
-    return gosl_get_ptr(GOSL_OBJ_TAG, obj);
-}
-
-//
 static bool gosl_is_class(Gosl val) {
     if (gosl_has_tag(GOSL_VEC_TAG, val)) {
         return true;
@@ -86,10 +95,32 @@ static bool gosl_is_class(Gosl val) {
 }
 
 static GoslClass *gosl_get_class(Gosl type) {
-    if (!gosl_is_class(type)) {
-        return NULL;
-    }
     return (GoslClass *) gosl_get_object(type);
+}
+
+GoslClass *gosl_object_class(GoslEnv *env, Gosl obj) {
+    Gosl c;
+    if (!isnan(obj.as_float)) {
+        c = env->builtins->classes.Number;
+    } else if (gosl_is_nan(obj)) {
+        c = env->builtins->classes.Number;
+    } else if (gosl_is_class(obj)) {
+        c = env->builtins->classes.Class;
+    } else if (gosl_eq(obj, GOSL_NULL)) {
+        c = env->builtins->classes.Null;
+    } else if (gosl_eq(obj, GOSL_TRUE) || gosl_eq(obj, GOSL_FALSE)) {
+        c = env->builtins->classes.Boolean;
+    } else {
+        Gosl *d = gosl_get_object(obj);
+        if (gosl_has_tag(GOSL_VEC_TAG, d[0])) {
+            c = env->builtins->classes.Vector;
+        } else if (gosl_has_tag(GOSL_BUF_TAG, d[0])) {
+            c = env->builtins->classes.Buffer;
+        } else {
+            c = d[0];
+        }
+    }
+    return gosl_get_class(c);
 }
 
 //

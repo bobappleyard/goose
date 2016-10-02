@@ -31,17 +31,22 @@ typedef union {
 #define GOSL_NAN    gosl_tagged(GOSL_LIT_TAG, 2)
 
 #define GOSL_ARENA_SIZE (1024*1024)
-#define GOSL_CLASS_SIZE 8
+#define GOSL_STACK_SIZE 1024
 
 #include "types.c"
+
+static Gosl gosl_copy_object(GoslEnv *env, Gosl obj, Gosl **to);
+static int gosl_object_size(Gosl type);
+static bool gosl_is_object(Gosl val);
+
 #include "builtins.c"
+
+#define GOSL_CLASS_SIZE (sizeof(GoslClass) / sizeof(Gosl))
 
 void gosl_error_msg(GoslEnv *env, char *msg) {
     fprintf(stderr, "%s\n", msg);
     exit(1);
 }
-
-
 
 #include "repr.c"
 #include "memory.c"

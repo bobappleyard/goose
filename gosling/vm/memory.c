@@ -3,10 +3,10 @@ static void gosl_gc(GoslEnv *env);
 static Gosl *gosl_alloc_block(GoslEnv *env, int size);
 
 Gosl gosl_alloc(GoslEnv *env, Gosl type) {
-    if (!gosl_is_class(type)) {
+    int size = gosl_object_size(type);
+    if (size == -1) {
         gosl_error_msg(env, "invalid type");
     }
-    int size = gosl_object_size(type);
     if (gosl_needs_gc(env, size)) {
         gosl_gc(env);
     }
@@ -14,8 +14,16 @@ Gosl gosl_alloc(GoslEnv *env, Gosl type) {
         gosl_error_msg(env, "out of memory");
     }
     Gosl *obj = gosl_alloc_block(env, size);
-    *obj = type;
+    obj[0] = type;
     return gosl_object(obj);
+}
+
+Gosl gosl_alloc_vector(GoslEnv *env, int count) {
+    return gosl_alloc(env, gosl_tagged(GOSL_VEC_TAG, count));
+}
+
+Gosl gosl_alloc_buffer(GoslEnv *env, int count) {
+    return gosl_alloc(env, gosl_tagged(GOSL_BUF_TAG, count));
 }
 
 static bool gosl_needs_gc(GoslEnv *env, int size) {
@@ -42,27 +50,21 @@ static Gosl gosl_copy_object(GoslEnv *env, Gosl obj, Gosl **to) {
 }
 
 static void gosl_copy_roots(GoslEnv *env, Gosl **to) {
-    Gosl *stack = env->stack;
-    for (Gosl *sp = env->sp; sp > stack; sp--) {
-        if (gosl_is_object(*sp)) {
-            *sp = gosl_copy_object(env, *sp, to);
+    for (GoslProcess *p = env->running; p; p = p->next) {
+        Gosl *stack = p->stack;
+        for (Gosl *sp = p->sp; sp > stack; sp--) {
+            if (gosl_is_object(*sp)) {
+                *sp = gosl_copy_object(env, *sp, to);
+            }
         }
     }
 }
 
 static void gosl_rewrite_object(GoslEnv *env, Gosl **finger, Gosl **to) {
     Gosl *data = *finger;
-    Gosl type = data[0];
-    int size = gosl_object_size(type);
-    *finger += size;
-    if (gosl_has_tag(GOSL_BUF_TAG, type)) {
-        return;
-    }
-    for (int i = 0; i < size; i++) {
-        if (gosl_is_object(data[i])) {
-            data[i] = gosl_copy_object(env, data[i], to);
-        }
-    }
+    GoslClass *class = gosl_object_class(env, gosl_object(data));
+    *finger += gosl_object_size(data[0]);
+    class->lifecycle->visit(env, data, to);
 }
 
 static void gosl_gc(GoslEnv *env) {

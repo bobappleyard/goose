@@ -1,3 +1,4 @@
+
 typedef struct GoslShape GoslShape;
 typedef struct GoslShapeList GoslShapeList;
 typedef struct GoslOffset GoslOffset;
@@ -14,7 +15,8 @@ typedef struct GoslFrame GoslFrame;
 typedef struct GoslEnv GoslEnv;
 typedef struct GoslBuiltins GoslBuiltins;
 
-typedef void (GoslImpl)(GoslProcess *p);
+typedef void (GoslImpl)(GoslProcess *p, int re_entry);
+typedef void (GoslVisit)(GoslEnv *env, Gosl *obj, Gosl **to);
 
 struct GoslShape {
     GoslShapeList *children;
@@ -65,9 +67,14 @@ struct GoslClass {
     GoslUnit *unit;
     GoslClass *ancestor;
     GoslShape *interface;
+    GoslLifecycle *lifecycle;
     int field_start, field_count;
     int slot_count;
     GoslSlot slots[];
+};
+
+struct GoslLifecycle {
+    GoslVisit *visit;
 };
 
 struct GoslUnit {
@@ -76,19 +83,21 @@ struct GoslUnit {
 };
 
 struct GoslProcess {
+    GoslProcess *next;
     GoslFrame *control, *frame;
-    Gosl data[];
+    Gosl *sp;
+    Gosl stack[GOSL_STACK_SIZE];
 };
 
 struct GoslFrame {
     GoslSlot *slot;
-    GoslByte *code;
+    int re_entry;
     Gosl *data;
 };
 
 struct GoslEnv {
-    GoslProcess *p;
+    GoslProcess *running, *waiting;
     GoslBuiltins *builtins;
-    Gosl *current, *arena, *stack, *sp;
+    Gosl *current, arena[2 * GOSL_ARENA_SIZE];
 };
 
