@@ -1,0 +1,50 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/bobappleyard/goose/c2l"
+	"github.com/bobappleyard/goose/h2c"
+	"github.com/bobappleyard/goose/handler"
+	"github.com/bobappleyard/goose/l2b"
+	"github.com/bobappleyard/goose/lc"
+)
+
+func main() {
+	h := handler.Handle{
+		Eval: handler.Apply{Fn: handler.Var{Name: "effectful"}, Arg: handler.Var{Name: "x"}},
+		Handlers: []handler.EffectHandler{
+			{
+				Effect: "effect",
+				Var:    "arg",
+				Body:   handler.Resume{With: handler.Var{Name: "arg"}},
+			},
+		},
+	}
+
+	// h := handler.Resume{With: handler.Var{Name: "arg"}}
+
+	// h := handler.Apply{Fn: handler.Var{Name: "effectful"}, Arg: handler.Var{Name: "x"}}
+
+	c, err := h2c.ConvertExpr(h, false)
+	if err != nil {
+		panic(err)
+	}
+
+	// c := cont.WithSubCont{
+	// 	Prompt: cont.Var{Name: "prompt"},
+	// 	Fn: cont.Lambda{
+	// 		Var:  "x",
+	// 		Body: cont.Var{Name: "y"},
+	// 	},
+	// }
+
+	l, err := c2l.ConvertExpr(c)
+	if err != nil {
+		panic(err)
+	}
+
+	// fmt.Printf("%#v\n", l)
+
+	fmt.Println(l2b.ConvertProgram(lc.Reduce(l)))
+}
