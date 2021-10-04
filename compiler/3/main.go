@@ -44,7 +44,7 @@ func main() {
 		panic(err)
 	}
 
-	// fmt.Printf("%#v\n", l)
+	fmt.Println(lc.Reduce(l))
 
 	fmt.Println(l2b.ConvertProgram(lc.Reduce(l)))
 }

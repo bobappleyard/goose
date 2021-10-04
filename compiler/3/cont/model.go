@@ -14,12 +14,16 @@ type Apply struct {
 }
 
 type Lambda struct {
-	Var  string
+	Var  Var
 	Body Expr
 }
 
-type WithPrompt struct {
-	Fn Expr
+type NewPrompt struct {
+}
+
+type PushPrompt struct {
+	Prompt Expr
+	Scope  Expr
 }
 
 type WithSubCont struct {
@@ -35,6 +39,7 @@ type PushSubCont struct {
 func (Var) expr()         {}
 func (Apply) expr()       {}
 func (Lambda) expr()      {}
-func (WithPrompt) expr()  {}
+func (NewPrompt) expr()   {}
+func (PushPrompt) expr()  {}
 func (WithSubCont) expr() {}
 func (PushSubCont) expr() {}

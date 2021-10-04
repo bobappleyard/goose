@@ -11,11 +11,13 @@ import (
 var errUnsupportedSyntax = errors.New("unsupported syntax")
 var errNotInHandler = errors.New("not in a handler")
 
-const handlerVariable = "#handler"
-const promptVariable = "#prompt"
-const scopeVariable = "#scope"
-const promptKVariable = "#promptK"
-const scopeKVariable = "#scopeK"
+var (
+	handlerVariable = cont.Var{Name: "#handler"}
+	promptVariable  = cont.Var{Name: "#prompt"}
+	scopeVariable   = cont.Var{Name: "#scope"}
+	promptKVariable = cont.Var{Name: "#promptK"}
+	scopeKVariable  = cont.Var{Name: "#scopeK"}
+)
 
 func ConvertExpr(e handler.Expr, inHandler bool) (cont.Expr, error) {
 	switch e := e.(type) {
@@ -60,7 +62,7 @@ func convertApply(e handler.Apply, inHandler bool) (cont.Expr, error) {
 
 	return cont.Apply{
 		Fn:  cont.Apply{Fn: f, Arg: arg},
-		Arg: cont.Var{Name: handlerVariable},
+		Arg: handlerVariable,
 	}, nil
 }
 
@@ -71,7 +73,7 @@ func convertLambda(e handler.Lambda, inHandler bool) (cont.Expr, error) {
 	}
 
 	return cont.Lambda{
-		Var:  e.Var,
+		Var:  cont.Var{Name: e.Var},
 		Body: cont.Lambda{Var: handlerVariable, Body: body},
 	}, nil
 }
@@ -87,55 +89,75 @@ func convertHandle(e handler.Handle, inHandler bool) (cont.Expr, error) {
 		return nil, err
 	}
 
-	return cont.WithPrompt{
-		Fn: cont.Lambda{
-			Var: promptVariable,
-			Body: cont.Apply{
-				Fn: cont.Lambda{
-					Var:  handlerVariable,
-					Body: eval,
-				},
-				Arg: handlerObj,
+	return let(promptVariable, cont.NewPrompt{}, cont.PushPrompt{
+		Prompt: promptVariable,
+		Scope: cont.Apply{
+			Fn: cont.Lambda{
+				Var:  handlerVariable,
+				Body: eval,
 			},
+			Arg: handlerObj,
 		},
-	}, nil
+	}), nil
+}
+
+func let(n cont.Var, v cont.Expr, in cont.Expr) cont.Expr {
+	return cont.Apply{
+		Fn: cont.Lambda{
+			Var:  n,
+			Body: in,
+		},
+		Arg: v,
+	}
+}
+
+func apply(f cont.Expr, args ...cont.Expr) cont.Expr {
+	var res cont.Expr = f
+	for _, a := range args {
+		res = cont.Apply{
+			Fn:  res,
+			Arg: a,
+		}
+	}
+	return res
 }
 
 func convertHandlers(handlers []handler.EffectHandler) (cont.Expr, error) {
-	var res cont.Expr = cont.Var{Name: "object#empty"}
+	var res cont.Expr = cont.Var{Name: "runtime.emptyObject"}
 	for _, h := range handlers {
 		b, err := ConvertExpr(h.Body, true)
 		if err != nil {
 			return nil, err
 		}
 
-		res = cont.Apply{
-			Fn: cont.Apply{
-				Fn: cont.Apply{
-					Fn:  cont.Var{Name: "object#extend"},
-					Arg: cont.Var{Name: "." + h.Effect},
-				},
-				Arg: res,
-			},
-			Arg: cont.Lambda{
-				Var: h.Var,
-				Body: cont.WithSubCont{
-					Prompt: cont.Var{Name: promptVariable},
-					Fn: cont.Lambda{
-						Var: promptKVariable,
-						Body: cont.WithPrompt{
-							Fn: cont.Lambda{
-								Var:  scopeVariable,
-								Body: b,
-							},
-						},
-					},
-				},
-			},
-		}
+		res = apply(
+			cont.Var{Name: "runtime.extendObject"},
+			cont.Var{Name: "." + h.Effect},
+			res,
+			convertHandler(cont.Var{Name: h.Var}, b),
+		)
 	}
 
 	return res, nil
+}
+
+func convertHandler(v cont.Var, b cont.Expr) cont.Expr {
+	return cont.Lambda{
+		Var: v,
+		Body: cont.WithSubCont{
+			Prompt: promptVariable,
+			Fn: cont.Lambda{
+				Var: promptKVariable,
+				Body: cont.PushPrompt{
+					Prompt: promptVariable,
+					Scope: let(scopeVariable, cont.NewPrompt{}, cont.PushPrompt{
+						Prompt: scopeVariable,
+						Scope:  b,
+					}),
+				},
+			},
+		},
+	}
 }
 
 func convertSignal(e handler.Signal, inHandler bool) (cont.Expr, error) {
@@ -147,7 +169,7 @@ func convertSignal(e handler.Signal, inHandler bool) (cont.Expr, error) {
 	return cont.Apply{
 		Fn: cont.Apply{
 			Fn:  cont.Var{Name: "." + e.Effect},
-			Arg: cont.Var{Name: handlerVariable},
+			Arg: handlerVariable,
 		},
 		Arg: arg,
 	}, nil
@@ -164,14 +186,17 @@ func convertResume(e handler.Resume, inHandler bool) (cont.Expr, error) {
 	}
 
 	return cont.WithSubCont{
-		Prompt: cont.Var{Name: scopeVariable},
+		Prompt: scopeVariable,
 		Fn: cont.Lambda{
 			Var: scopeKVariable,
-			Body: cont.PushSubCont{
-				Cont: cont.Var{Name: scopeKVariable},
+			Body: cont.PushPrompt{
+				Prompt: scopeVariable,
 				Scope: cont.PushSubCont{
-					Cont:  cont.Var{Name: promptKVariable},
-					Scope: with,
+					Cont: scopeKVariable,
+					Scope: cont.PushSubCont{
+						Cont:  promptKVariable,
+						Scope: with,
+					},
 				},
 			},
 		},

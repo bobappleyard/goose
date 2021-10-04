@@ -40,8 +40,11 @@ func (c *converter) convertExpr(e cont.Expr) lc.Expr {
 	case cont.Lambda:
 		return c.convertLambda(e)
 
-	case cont.WithPrompt:
-		return c.convertWithPrompt(e)
+	case cont.NewPrompt:
+		return c.convertNewPrompt(e)
+
+	case cont.PushPrompt:
+		return c.convertPushPrompt(e)
 
 	case cont.WithSubCont:
 		return c.convertWithSubCont(e)
@@ -100,20 +103,29 @@ func (c *converter) convertApply(e cont.Apply) lc.Expr {
 func (c *converter) convertLambda(e cont.Lambda) lc.Expr {
 	k := c.gensym("k")
 	kk := c.gensym("k")
-	v := lc.Var{Name: e.Var}
+	v := lc.Var{Name: e.Var.Name}
 	body := c.convertExpr(e.Body)
 
 	return lambda(k, apply(k, lambda(v, lambda(kk, apply(body, kk)))))
 }
 
-func (c *converter) convertWithPrompt(e cont.WithPrompt) lc.Expr {
+func (c *converter) convertNewPrompt(e cont.NewPrompt) lc.Expr {
 	k := c.gensym("k")
-	f := c.gensym("f")
-	fn := c.convertExpr(e.Fn)
 
-	withPrompt := lc.Var{Name: "runtime.withPrompt"}
+	newPrompt := lc.Var{Name: "runtime.newPrompt"}
 
-	return lambda(k, apply(fn, lambda(f, apply(withPrompt, f, k))))
+	return lambda(k, apply(newPrompt, k))
+}
+
+func (c *converter) convertPushPrompt(e cont.PushPrompt) lc.Expr {
+	k := c.gensym("k")
+	p := c.gensym("p")
+	pr := c.convertExpr(e.Prompt)
+	sc := c.convertExpr(e.Scope)
+
+	pushPrompt := lc.Var{Name: "runtime.pushPrompt"}
+
+	return lambda(k, apply(pr, lambda(p, apply(pushPrompt, p, sc, k))))
 }
 
 func (c *converter) convertWithSubCont(e cont.WithSubCont) lc.Expr {

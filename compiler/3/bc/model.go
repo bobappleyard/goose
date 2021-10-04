@@ -11,15 +11,21 @@ type Step interface {
 	s()
 }
 
+type Program struct {
+	Globals     []lc.Var
+	Definitions []Definition
+	Blocks      []Block
+}
+
+type Definition struct {
+	Name  lc.Var
+	Block int
+}
+
 type Block struct {
 	Free  []lc.Var
 	Bound []lc.Var
 	Steps []Step
-}
-
-type Program struct {
-	Globals []lc.Var
-	Blocks  []Block
 }
 
 type PushBound struct {
@@ -34,9 +40,12 @@ type PushGlobal struct {
 	Var int
 }
 
+type PushBlock struct {
+	ID int
+}
+
 type PushFn struct {
-	Block    int
-	FirstVar int
+	Start int
 }
 
 type Drop struct {
@@ -45,11 +54,13 @@ type Drop struct {
 
 type Call struct {
 	Start int
+	Argc  int
 }
 
 func (PushBound) s()  {}
 func (PushFree) s()   {}
 func (PushGlobal) s() {}
+func (PushBlock) s()  {}
 func (PushFn) s()     {}
 func (Drop) s()       {}
 func (Call) s()       {}
@@ -89,8 +100,12 @@ func (s PushGlobal) String() string {
 	return fmt.Sprintf("GLOB\t%d", s.Var)
 }
 
+func (s PushBlock) String() string {
+	return fmt.Sprintf("BLOCK\t%d", s.ID)
+}
+
 func (s PushFn) String() string {
-	return fmt.Sprintf("FN\t%d\t%d", s.Block, s.FirstVar)
+	return fmt.Sprintf("FN\t%d", s.Start)
 }
 
 func (s Drop) String() string {
@@ -98,5 +113,5 @@ func (s Drop) String() string {
 }
 
 func (s Call) String() string {
-	return fmt.Sprintf("CALL\t%d", s.Start)
+	return fmt.Sprintf("CALL\t%d\t%d", s.Start, s.Argc)
 }

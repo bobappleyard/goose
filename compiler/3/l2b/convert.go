@@ -12,7 +12,7 @@ func ConvertProgram(p lc.Expr) bc.Program {
 	c := converter{
 		prog: &prog,
 	}
-	c.convertLambda(p.(lc.Abs))
+	c.convertBody(p.(lc.Abs))
 	return prog
 }
 
@@ -56,29 +56,20 @@ func (c *converter) convertVar(e lc.Var) bc.Step {
 }
 
 func (c *converter) convertLambda(e lc.Abs) bc.PushFn {
-	bound, body := flattenVars(e)
-	block := len(c.prog.Blocks)
-
-	inner := converter{
-		prog:  c.prog,
-		block: block,
-		bound: bound,
-		free:  usedVars(mergeVars(c.bound, c.free), e),
-	}
-	c.prog.Blocks = append(c.prog.Blocks, bc.Block{
-		Bound: inner.bound,
-		Free:  inner.free,
-	})
+	block, free := c.convertBody(e)
 	start := c.pos
 
-	inner.convertExpr(body)
-	for _, v := range inner.free {
+	c.addStep(bc.PushBlock{
+		ID: block,
+	})
+	c.pos++
+
+	for _, v := range free {
 		c.convertExpr(v)
 	}
 
 	return bc.PushFn{
-		Block:    block,
-		FirstVar: start,
+		Start: start,
 	}
 }
 
@@ -101,7 +92,29 @@ func (c *converter) convertCall(e lc.App) bc.Call {
 		c.pos++
 	}
 
-	return bc.Call{Start: start}
+	return bc.Call{
+		Start: start,
+		Argc:  len(args),
+	}
+}
+
+func (c *converter) convertBody(e lc.Abs) (int, []lc.Var) {
+	bound, body := flattenVars(e)
+	block := len(c.prog.Blocks)
+
+	inner := converter{
+		prog:  c.prog,
+		block: block,
+		bound: bound,
+		free:  usedVars(mergeVars(c.bound, c.free), e),
+	}
+	c.prog.Blocks = append(c.prog.Blocks, bc.Block{
+		Bound: inner.bound,
+		Free:  inner.free,
+	})
+	inner.convertExpr(body)
+
+	return block, inner.free
 }
 
 func (c *converter) addStep(s bc.Step) {
