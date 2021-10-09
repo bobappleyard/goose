@@ -1,8 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"os"
 
+	"github.com/bobappleyard/goose/b2c"
 	"github.com/bobappleyard/goose/c2l"
 	"github.com/bobappleyard/goose/h2c"
 	"github.com/bobappleyard/goose/handler"
@@ -17,7 +18,13 @@ func main() {
 			{
 				Effect: "effect",
 				Var:    "arg",
-				Body:   handler.Resume{With: handler.Var{Name: "arg"}},
+				Body: handler.Apply{
+					Arg: handler.Resume{With: handler.Var{Name: "arg"}},
+					Fn: handler.Lambda{
+						Var:  "res",
+						Body: handler.Apply{Fn: handler.Var{Name: "f"}, Arg: handler.Var{Name: "res"}},
+					},
+				},
 			},
 		},
 	}
@@ -44,7 +51,5 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(lc.Reduce(l))
-
-	fmt.Println(l2b.ConvertProgram(lc.Reduce(l)))
+	b2c.ConvertProgram(l2b.ConvertProgram(lc.Reduce(l)), os.Stdout)
 }

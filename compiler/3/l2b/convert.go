@@ -113,6 +113,7 @@ func (c *converter) convertBody(e lc.Abs) (int, []lc.Var) {
 		Free:  inner.free,
 	})
 	inner.convertExpr(body)
+	c.prog.Blocks[block].Allocs = inner.pos
 
 	return block, inner.free
 }

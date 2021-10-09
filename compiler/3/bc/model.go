@@ -23,9 +23,10 @@ type Definition struct {
 }
 
 type Block struct {
-	Free  []lc.Var
-	Bound []lc.Var
-	Steps []Step
+	Free   []lc.Var
+	Bound  []lc.Var
+	Allocs int
+	Steps  []Step
 }
 
 type PushBound struct {
@@ -48,10 +49,6 @@ type PushFn struct {
 	Start int
 }
 
-type Drop struct {
-	Var int
-}
-
 type Call struct {
 	Start int
 	Argc  int
@@ -62,7 +59,6 @@ func (PushFree) s()   {}
 func (PushGlobal) s() {}
 func (PushBlock) s()  {}
 func (PushFn) s()     {}
-func (Drop) s()       {}
 func (Call) s()       {}
 
 func (b Block) String() string {
@@ -106,10 +102,6 @@ func (s PushBlock) String() string {
 
 func (s PushFn) String() string {
 	return fmt.Sprintf("FN\t%d", s.Start)
-}
-
-func (s Drop) String() string {
-	return fmt.Sprintf("DROP\t%d", s.Var)
 }
 
 func (s Call) String() string {
